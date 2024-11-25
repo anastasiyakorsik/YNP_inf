@@ -33,7 +33,7 @@ def calculate_chain_vector(input_chain_vector, markup_vectors):
     for markup_vector in markup_vectors:
         average_markup_vector = calc_mean(*markup_vector)
         chain_vector.append(average_markup_vector)
-    return input_chain_vector + average_markup_vector
+    return input_chain_vector + chain_vector
 
 
 def compare_bboxes(existing_bbox: dict, predicted_bbox: dict, threshold: float = 0.5) -> bool:

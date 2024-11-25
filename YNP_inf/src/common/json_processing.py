@@ -2,7 +2,7 @@ import json
 import chardet
 import os
 
-from logger import py_logger
+from common.logger import py_logger
 
 def load_json(input_arg: str) -> dict:
     """
@@ -22,7 +22,6 @@ def load_json(input_arg: str) -> dict:
         return data
     except Exception as e:
         py_logger.exception(f'Exception occurred in json_processing.load_json(): {e}', exc_info=True)
-        #TODO: Add on_error
 
 def save_json(data: dict, output_path: str):
     """
@@ -33,6 +32,6 @@ def save_json(data: dict, output_path: str):
             json.dump(data, f, ensure_ascii=False, indent=4)
     except Exception as e:
         py_logger.exception(f'Exception occurred in json_processing.save_json(): {e}', exc_info=True)
-        #TODO: Add on_error
+     
 
 

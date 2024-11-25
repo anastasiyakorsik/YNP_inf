@@ -48,8 +48,9 @@ def main():
         model_size = "l"
 
         # init callback
-        cs = CS(host_web)
-        cs.post_start()
+        cs = None
+        # cs = CS(host_web)
+        # cs.post_start()
 
         # Getting model from weigths
         py_logger.info("Getting model:")
@@ -67,7 +68,7 @@ def main():
             print("Start inference")
             inference_mode(model, cs, json_files)
         
-        cs.post_end()
+        # cs.post_end()
             
     except Exception as err:
         py_logger.exception(f"Exception occurred in main(): {err}",exc_info=True)

@@ -1,0 +1,3 @@
+yolo-nas-pose 2024-11-26 00:11:45,245 INFO Getting model:
+yolo-nas-pose 2024-11-26 00:11:46,576 INFO Start inference
+yolo-nas-pose 2024-11-26 00:15:18,978 INFO Inference results for 3_кол_юж_вход_2.mp4 saved and recorded into ../output/3_кол_юж_вход_2.mp4.json

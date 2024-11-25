@@ -1,21 +1,56 @@
 import time
 import uuid
 import os
+import subprocess
 
 from tqdm import tqdm
 from typing import Type
 
-from prediction_processor import get_prediction_per_frame, compare_bboxes, calculate_chain_vector
+from inference.prediction_processor import get_prediction_per_frame, compare_bboxes, calculate_chain_vector
 
 from common.json_processing import load_json, save_json
-from common.generate_callback_data import generate_error_data, generate_callback_data
+from common.generate_callback_data import generate_error_data, generate_progress_data
 from common.logger import py_logger
 
 from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
 
-INPUT_PATH = os.path.join("../", INPUT_PATH)
-OUTPUT_PATH = os.path.join("../", OUTPUT_PATH)
-INPUT_DATA_PATH = os.path.join("../", INPUT_DATA_PATH)
+def get_frame_times(video_path):
+    """
+    Gets time for each video frame
+
+    Arguments:
+        video_path (str): Path to video
+
+    Returns:
+        frame_times: Array of each frame time
+    """
+
+    command = [
+        "ffprobe",
+        "-show_frames",
+        "-select_streams", "v:0",
+        "-show_entries", "frame=pkt_pts_time",
+        "-of", "csv",
+        video_path
+    ]
+
+    # Run cmd by subprocess
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    # Проверка на ошибки
+    if result.returncode != 0:
+        print(f"FFprobe error: {result.stderr}")
+
+    # Parse result
+    frame_times = []
+    for line in result.stdout.splitlines():
+        if line.startswith("frame"):
+            time = line.split(",")[1]
+            if 'side' in line:
+                time = time.split("s")[0]
+            frame_times.append(float(time))
+    
+    return frame_times
 
 def check_video_extension(video_path):
     """
@@ -25,14 +60,17 @@ def check_video_extension(video_path):
     ext = os.path.splitext(video_path)[1][1:].lower()
     return ext in valid_extensions
 
-def create_json_with_predictions(data_file: dict, model, cs, progress, conf: float = 0.6):
+def create_json_with_predictions(data_file: dict, frame_times, model, cs, progress, conf: float = 0.6):
     """
     Adds to input JSON model predictions and saves result in output JOSN for each videofile
     
     Arguments:
-        data: Input JSON data for one video
+        data_file: Input JSON data for one video
+        frame_times: Calculated times of video frames
         model: Prediction model
-        conf: Model confidence
+        cs: ContainerStatus object
+        progress: Progress percent 
+        conf: [OPTIONAL] Model confidence
     """
     try:
         file_name = data_file['file_name']
@@ -53,17 +91,17 @@ def create_json_with_predictions(data_file: dict, model, cs, progress, conf: flo
         out_json_additional_path = os.path.join(OUTPUT_PATH, out_json_additional)
 
         # Inference for each frame of video
-        cs.post_progress(generate_progress_data(progress, "predicting"))
+        # cs.post_progress(generate_progress_data(progress, "predicting"))
         preds, inference_time = get_prediction_per_frame(model, full_file_name, conf=conf)
 
         # Processing inference result
-        cs.post_progress(generate_progress_data(progress, "processing"))
+        # cs.post_progress(generate_progress_data(progress, "processing"))
         for pred in preds:
             frame = pred['markup_frame']
             predicted_bboxes = pred['processed_prediction']['bboxes']
-            predicted_nodes = predicted_vector['processed_prediction']['nodes']
-            predicted_edges = predicted_vector['processed_prediction']['edges']
-            predicted_scores = predicted_vector['processed_prediction']['scores']
+            predicted_nodes = pred['processed_prediction']['nodes']
+            predicted_edges = pred['processed_prediction']['edges']
+            predicted_scores = pred['processed_prediction']['scores']
 
             matched = False
 
@@ -95,8 +133,9 @@ def create_json_with_predictions(data_file: dict, model, cs, progress, conf: flo
                                 markup_path = {}
                                 markup_path['nodes'] = detected_person_nodes
                                 markup_path['edges'] = predicted_edges
+                                markup['markup_time'] = frame_times[frame]
                                 markup['markup_path'] = markup_path
-                                markup['markup_vector'] = predicted_scores[i]
+                                markup['markup_vector'] = markup['markup_vector'] + predicted_scores[i]
                                 predicted_markup_vectors.append(predicted_scores[i])
                                 matched = True
                                 break
@@ -134,11 +173,11 @@ def create_json_with_predictions(data_file: dict, model, cs, progress, conf: flo
         # save_json(output_add_file_data, out_json_additional_path)
         py_logger.info(f"Inference results for {file_name} saved and recorded into {out_json_path}")
         print(f"Inference results for {file_name} saved and recorded into {out_json_path}")
-        cs.post_progress(generate_progress_data(progress, "processed", out_json_path))
+        # cs.post_progress(generate_progress_data(progress, "processed", out_json_path))
 
     except Exception as e:
-        py_logger.exception(f'Exception occurred in inference.create_json_with_predictions() while inferencing {data_file['file_name']}: {e}', exc_info=True)
-        cs.post_error(generate_error_data(f"Failed to inference. Exception occurred in inference.inference_mode(): {err}"))
+        py_logger.exception(f'Exception occurred in inference.create_json_with_predictions(): {e}', exc_info=True)
+        # cs.post_error(generate_error_data(f"Failed to inference. Exception occurred in inference.inference_mode(): {err}"))
        
 def inference_mode(model, cs, json_files):
     """
@@ -156,7 +195,7 @@ def inference_mode(model, cs, json_files):
         for json_file in json_files:
 
             full_json_path = os.path.join(INPUT_DATA_PATH, json_file)
-            # print(full_json_path)
+            print(full_json_path)
             data = load_json(full_json_path)
 
             #TODO: Add on_progress
@@ -165,14 +204,16 @@ def inference_mode(model, cs, json_files):
             full_file_name = os.path.join(INPUT_PATH, data_file['file_name'])
 
             if not os.path.exists(full_file_name) or not check_video_extension(file_name):
-                cs.post_error(generate_error_data(f"Failed to create predictions for {file_name}"))
+                # cs.post_error(generate_error_data(f"Failed to create predictions for {file_name}"))
                 continue  # Skip if file does not exist or extension doens't match appropriate ones
 
             # Make and process model predictions for video
             file_num += 1
             progress = round((file_num + 1) / len(json_files) * 100, 2)
-            create_json_with_predictions(data_file, model, cs, progress)
+
+            frame_times = get_frame_times(full_file_name)
+            create_json_with_predictions(data_file, frame_times, model, cs, progress)
 
     except Exception as e:
         py_logger.exception(f'Exception occurred in inference.inference_mode(): {e}', exc_info=True)
-        cs.post_error(generate_error_data(f"Failed to inference. Exception occurred in inference.inference_mode(): {err}"))
+        # cs.post_error(generate_error_data(f"Failed to inference. Exception occurred in inference.inference_mode(): {err}"))
