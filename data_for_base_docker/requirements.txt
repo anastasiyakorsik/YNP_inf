@@ -1,0 +1,6 @@
+tqdm
+chardet
+requests
+ffprobe
+numpy
+super-gradients
