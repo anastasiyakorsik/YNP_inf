@@ -13,7 +13,7 @@ from super_gradients.training import models
 from inference.inference import inference_mode
 # from train.train_yolonas_pose import train_mode
 from common.container_status import ContainerStatus as CS
-from common.generate_callback_data import generate_error_data
+from common.generate_callback_data import generate_error_data, generate_progress_data
 
 from workdirs import WEIGHTS_PATH, OUTPUT_PATH, INPUT_PATH, INPUT_DATA_PATH
 
@@ -51,6 +51,9 @@ def main():
         # cs = None
         cs = CS(host_web)
 
+        cs.post_start({"msg": "Start processing by YOLO-NAS Pose model"})
+        cs.post_progress(generate_progress_data("start", 0))
+
         # Getting model from weigths
         py_logger.info("Getting model:")
         model = models.get(f"yolo_nas_pose_{model_size}", num_classes = 17, checkpoint_path=WEIGHTS_PATH)
@@ -60,13 +63,12 @@ def main():
         if training_mode:
             #TODO: merge files in one or other way
             # train_mode(model, data)
-            print('Trining mode is under development')
-        else:
-            # for each video go inference and add its json with new data
-            cs.post_start({"msg": "Start inference by YOLO-NAS Pose model"})
-            py_logger.info("Start inference")
-            # print("Start inference")
-            output_files = inference_mode(model, cs, json_files)
+            print('Training mode is under development')
+            #TODO: load model from produced weights after training
+        
+        # for each video go inference and add its json with new data
+        py_logger.info("Start inference")
+        output_files = inference_mode(model, cs, json_files)
         
         cs.post_end({"out_files": output_files})
             

@@ -160,8 +160,11 @@ def create_json_with_predictions(input_data: dict, frame_times, model, cs, progr
                 out_add_chain.chain_vector = calculate_chain_vector([], predicted_markup_vectors)
                     
             py_logger.info(f"Have {matched_bboxes} matched bboxes for chain {chain['chain_name']}")
-            output_file_data.file_chains.append(out_chain)
-            output_add_file_data.file_chains.append(out_add_chain)
+            
+            if out_chain.chain_markups:
+                output_file_data.file_chains.append(out_chain)
+            if out_add_chain.chain_markups:
+                output_add_file_data.file_chains.append(out_add_chain)
 
         # Save new JSONs
         output_data.files.append(output_file_data)

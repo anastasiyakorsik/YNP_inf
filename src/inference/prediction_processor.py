@@ -44,20 +44,31 @@ def compare_bboxes(existing_bbox: dict, predicted_bbox: dict, threshold: float =
     try:
         x1, y1, w1, h1 = existing_bbox["x"], existing_bbox["y"], existing_bbox["width"], existing_bbox["height"]
         x2, y2, w2, h2 = predicted_bbox["x"], predicted_bbox["y"], predicted_bbox["width"], predicted_bbox["height"]
-
+        
+        # bboxes areas
+        area1 = w1 * h1
+        area2 = w2 * h2
+        
+        min_area = min(area1, area2)
+        
         # intersection coordinates
         xi1 = max(x1, x2)
         yi1 = max(y1, y2)
         xi2 = min(x1 + w1, x2 + w2)
         yi2 = min(y1 + h1, y2 + h2)
+        
+        # Intersection area
         inter_width = max(xi2 - xi1, 0)
         inter_height = max(yi2 - yi1, 0)
         intersection = inter_width * inter_height
-
-        # association area
-        union = w1 * h1 + w2 * h2 - intersection
-
-        iou = intersection / union if union != 0 else 0
+        
+        # union area
+        union = area1 + area2 - intersection
+        
+        # intersection over union
+        iou = 0
+        if intersection > 0:
+            iou = intersection / union
 
         return iou >= threshold
 
@@ -135,8 +146,8 @@ def skeletons_processing(poses, edge_links):
 
             link = edge_links[i]
 
-            edge_nodes["from"] = int(link[0])
-            edge_nodes["to"] = int(link[1])
+            edge_nodes["from"] = f"node_{link[0]}"
+            edge_nodes["to"] = f"node_{link[1]}"
 
             edges[f"edge_{i}"] = edge_nodes 
 
