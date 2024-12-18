@@ -83,6 +83,19 @@ def draw_bboxes(frame, existing_bboxes, predicted_bboxes, overlap_color=(0, 255,
                     # Рисуем область пересечения (жёлтая)
                     xi1, yi1, xi2, yi2 = map(int, [xi1, yi1, xi2, yi2])
                     cv2.rectangle(overlay, (xi1, yi1), (xi2, yi2), overlap_color, -1)  # Заполненный прямоугольник
+
+                    intersection_area = inter_width * inter_height
+                    bbox1_area = w1 * h1
+                    bbox2_area = w2 * h2
+                    union_area = bbox1_area + bbox2_area - intersection_area
+                    iou = 0
+                    if union_area > 0:
+                        iou = intersection_area / union_area
+                    
+                    text = f"IoU: {iou:.2f}"
+                    text_x, text_y = xi1, yi1 - 5
+                    cv2.putText(frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
                     
         alpha = 0.4  # Прозрачность
         cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
