@@ -2,7 +2,7 @@ import time
 import os
 import subprocess
 
-def get_frame_times(video_path):
+def get_frame_times(video_path: str):
     """
     Gets time for each video frame
 
@@ -42,7 +42,7 @@ def get_frame_times(video_path):
     
     return frame_times
 
-def check_video_extension(video_path):
+def check_video_extension(video_path: str):
     """
     Checks video extension for compliance with the specified ones
     """

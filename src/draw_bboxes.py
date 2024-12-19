@@ -27,6 +27,8 @@ from common.logger import py_logger
 
 from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH, WEIGHTS_PATH
 
+OUT_FRAMES = "../out_mark_frames"
+
 def collect_bboxes(input_data):
     """
     Collects dict where key - video frame and value - list of marked bboxes
@@ -49,7 +51,7 @@ def collect_bboxes(input_data):
     except Exception as e:
         py_logger.exception(f'Exception occurred in collect_bboxes(): {e}', exc_info=True)
 
-def draw_bboxes(frame, existing_bboxes, predicted_bboxes, overlap_color=(0, 255, 255)):
+def draw_bboxes(frame, frame_index, existing_bboxes, predicted_bboxes, overlap_color=(0, 255, 255)):
     """
     Draws multiple bounding boxes on a video frame and highlights overlap areas.
     
@@ -99,6 +101,12 @@ def draw_bboxes(frame, existing_bboxes, predicted_bboxes, overlap_color=(0, 255,
                     
         alpha = 0.4  # Прозрачность
         cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+        if not os.path.exists(OUT_FRAMES):
+            os.makedirs(OUT_FRAMES)
+        output_path = os.path.join(OUT_FRAMES, f"frame_{frame_index:05d}.png")
+        cv2.imwrite(output_path, frame)
+        print(f"Saved: {output_path}")
 
         return frame
     except Exception as e:

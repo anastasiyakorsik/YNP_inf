@@ -1,18 +1,47 @@
-# from dataclasses import dataclass, field, asdict
 from typing import Dict, List
 import json
 
 class Node:
+    """
+    Describes skeleton keypoints
+
+    Attributes:
+        x (float), y (float): Keypoint coordinates
+        score (float): Confidence score of keypoint
+    """
     def __init__(self, x: float, y: float, score: float):
         self.x = x
         self.y = y
         self.score = score
 
 class MarkupPath:
+    """
+    Describes bbox and skeleton of a person
+
+    Attributes:
+        x (float), y (float), width (float), height (float): Bbox coordinates and size params
+        nodes (dict): Structure describing skeleton keypoints {<node_id>: {x: <node_x>, y: <node_y>}, ...}
+        edges (dict): Structure describing links between skeleton keypoints {<edge_id>: {from: <src_node_id>, to: <dest_node_id>}, ...}
+    """
+    x: float
+    y: float
+    width: float
+    height: float
     nodes: dict[str, Node]
     edges: dict[str, dict[str, int]]
 
 class Markup:
+    """
+    Describes markup for person in current frame
+
+    Attributes:
+        markup_id (str): Markup ID
+        markup_parent_id (str): Markup Parent ID
+        markup_time (float): Time of current video frame 
+        markup_frame (int): Video frame number
+        markup_vector (list): List of input scores and keypoints scores
+        markup_path (MarkupPath): Structure containing information about person bbox and skeleton in current frame
+    """
     markup_id: str
     markup_parent_id: str
     markup_time: float
@@ -21,6 +50,16 @@ class Markup:
     markup_path: MarkupPath
 
 class Chain:
+    """
+    Describes all markups for person (equals chain) in video
+
+    Attributes:
+        chain_id (str): Chain ID
+        chain_name (str): Chain name
+        chain_vector (list): List of input scores and mean scores of all keypoints in chain
+        chain_dataset_id (str): Chain Dataset ID
+        chain_markups (list): Structure containing information about person bboxes and skeletons in video
+    """
     chain_id: str
     chain_name: str
     chain_vector: list[float]
@@ -28,6 +67,15 @@ class Chain:
     chain_markups: list[Markup]
 
 class File:
+    """
+    Describes file markups
+
+    Attributes:
+        file_id (int): File ID
+        file_name (str): File name
+        file_subset (str): [OPTIONAL] File subset
+        file_chains (list): Structure containing information about all people's bboxes and skeletons in video
+    """
     def __init__(self, file_id: int, file_name: str, file_subset: str = None):
         self.file_id = file_id
         self.file_name = file_name
@@ -49,6 +97,6 @@ def recursive_asdict(obj):
     else:
         return obj
             
-def save_class_in_json(save_data, save_file_name):    
+def save_class_in_json(save_data, save_file_name: str):    
     with open(save_file_name, 'w') as f:
         json.dump(recursive_asdict(save_data), f, indent=4)
