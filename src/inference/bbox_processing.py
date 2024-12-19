@@ -6,13 +6,14 @@ from common.logger import py_logger
 
 OUT_FRAMES = "../out_mark_frames"
 
-def draw_bboxes_and_save(frame, frame_index, existing_bbox, predicted_bbox, overlap_color=(0, 255, 255)):
+def draw_bboxes_and_save(frame, frame_index, out_frame_name, existing_bbox, predicted_bbox, overlap_color=(0, 255, 255)):
     """
     Draws multiple bounding boxes on a video frame and highlights overlap areas.
     
     Parameters:
         frame (numpy.ndarray): Current video frame
         frame_index (int): Frame number
+        out_frame_name (str): Output marked frame file name
         existing_bbox (dict): Bbox from input data {"x", "y", "width", "height"}
         predicted_bbox (dict): Bbox predicted by model {"x", "y", "width", "height"}
         overlap_color (tuple): [OPTIONAL] Intersection color
@@ -63,9 +64,9 @@ def draw_bboxes_and_save(frame, frame_index, existing_bbox, predicted_bbox, over
         # Save marked video frame
         if not os.path.exists(OUT_FRAMES):
             os.makedirs(OUT_FRAMES)
-        output_path = os.path.join(OUT_FRAMES, f"frame_{frame_index:05d}.png")
+        output_path = os.path.join(OUT_FRAMES, out_frame_name)
         cv2.imwrite(output_path, frame)
-        print(f"Save marked video frame in file: {output_path}")
+        # print(f"Save marked video frame in file: {output_path}")
 
         return frame
     except Exception as e:
@@ -99,7 +100,7 @@ def compute_center_distance(bbox1, bbox2):
     """
     cx1, cy1 = bbox1["x"] + bbox1["width"] / 2, bbox1["y"] + bbox1["height"] / 2
     cx2, cy2 = bbox2["x"] + bbox2["width"] / 2, bbox2["y"] + bbox2["height"] / 2
-    return ((cx1 - cx2)  2 + (cy1 - cy2)  2) ** 0.5
+    return ((cx1 - cx2)**2 + (cy1 - cy2)**2) ** 0.5
 
 def compute_size_difference(bbox1, bbox2):
     """

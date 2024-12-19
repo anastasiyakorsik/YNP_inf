@@ -42,18 +42,22 @@ def main():
     try:
         args = parse_arguments()
         # sample: input_data = {"weights_file": "yolo_nas_pose_l_coco_pose.pth", "model_size": "l", "epochs_num": 5}
-        json_data = args.input_data
+        input_data = args.input_data
         host_web = args.host_web
         training_mode = args.work_format_training
+        
+        weights_file = WEIGHTS_FILE
+        model_size = MODEL_SIZE
+        epochs_num = EPOCHS_NUM
 
         if input_data:
             try:
-                WEIGHTS_FILE = input_data["weights_file"]
-                MODEL_SIZE = input_data["model_size"]
-                EPOCHS_NUM = input_data["epochs_num"]
+                weights_file = input_data["weights_file"]
+                model_size = input_data["model_size"]
+                epochs_num = input_data["epochs_num"]
             except Exception as ex:
                 py_logger.error(f"Failed to load necessary input params from given input_data: {input_data}. Default params will be used.")
-
+            
         # get all JSON files for each video from input_data directory
         json_files = os.listdir(INPUT_DATA_PATH)
 
@@ -67,11 +71,11 @@ def main():
             cs.post_start({"msg": "Start processing by YOLO-NAS Pose model"})
             cs.post_progress(generate_progress_data("start", 0))
 
-        WEIGHTS_PATH = os.path.join(WEIGHTS_DIR, WEIGHTS_FILE)
+        WEIGHTS_PATH = os.path.join(WEIGHTS_DIR, weights_file)
 
         # Getting model from weigths
         py_logger.info("Getting model:")
-        model = models.get(f"yolo_nas_pose_{MODEL_SIZE}", num_classes = 17, checkpoint_path=WEIGHTS_PATH)
+        model = models.get(f"yolo_nas_pose_{model_size}", num_classes = 17, checkpoint_path=WEIGHTS_PATH)
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         model.to(device)
 

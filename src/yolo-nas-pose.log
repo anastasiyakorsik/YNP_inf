@@ -1,23 +1,25 @@
-yolo-nas-pose 2024-12-18 09:51:03,375 INFO Getting model:
-yolo-nas-pose 2024-12-18 09:51:05,997 INFO Start inference
-yolo-nas-pose 2024-12-18 09:51:05,997 INFO Processing current input JSON file: ../markups/IN_Московская-04_30fps_5.mp4.json
-yolo-nas-pose 2024-12-18 09:51:06,888 INFO Processing current video file: ../input/Московская-04_30fps_5.mp4
-yolo-nas-pose 2024-12-18 09:51:14,135 INFO Have 0 matched bboxes for chain 9
-yolo-nas-pose 2024-12-18 09:51:14,153 INFO Have 0 matched bboxes for chain 7
-yolo-nas-pose 2024-12-18 09:51:14,154 INFO Have 0 matched bboxes for chain 8
-yolo-nas-pose 2024-12-18 09:51:14,160 INFO Have 0 matched bboxes for chain 4
-yolo-nas-pose 2024-12-18 09:51:14,170 INFO Have 1 matched bboxes for chain 1
-yolo-nas-pose 2024-12-18 09:51:14,193 INFO Have 0 matched bboxes for chain 3
-yolo-nas-pose 2024-12-18 09:51:14,194 INFO Have 0 matched bboxes for chain 2
-yolo-nas-pose 2024-12-18 09:51:14,922 INFO Inference results for Московская-04_30fps_5.mp4 saved and recorded into ../output/Московская-04_30fps_5.mp4.json and ../output/Московская-04_30fps_5.mp4_add.json
-yolo-nas-pose 2024-12-18 09:51:14,924 INFO Processing current input JSON file: ../markups/IN_Московская-04_30fps_4.mp4.json
-yolo-nas-pose 2024-12-18 09:51:16,199 INFO Processing current video file: ../input/Московская-04_30fps_4.mp4
-yolo-nas-pose 2024-12-18 09:51:21,931 INFO Have 0 matched bboxes for chain 13
-yolo-nas-pose 2024-12-18 09:51:21,941 INFO Have 0 matched bboxes for chain 11
-yolo-nas-pose 2024-12-18 09:51:21,945 INFO Have 0 matched bboxes for chain 17
-yolo-nas-pose 2024-12-18 09:51:21,959 INFO Have 0 matched bboxes for chain 15
-yolo-nas-pose 2024-12-18 09:51:21,976 INFO Have 0 matched bboxes for chain 14
-yolo-nas-pose 2024-12-18 09:51:21,978 INFO Have 0 matched bboxes for chain 12
-yolo-nas-pose 2024-12-18 09:51:21,995 INFO Have 1 matched bboxes for chain 10
-yolo-nas-pose 2024-12-18 09:51:21,996 INFO Have 0 matched bboxes for chain 16
-yolo-nas-pose 2024-12-18 09:51:22,427 INFO Inference results for Московская-04_30fps_4.mp4 saved and recorded into ../output/Московская-04_30fps_4.mp4.json and ../output/Московская-04_30fps_4.mp4_add.json
+yolo-nas-pose 2024-12-19 22:28:43,354 INFO Getting model:
+yolo-nas-pose 2024-12-19 22:28:45,377 INFO Start inference
+yolo-nas-pose 2024-12-19 22:28:45,377 INFO Processing current input JSON file: ../input_data/IN_Московская-04_30fps_5.mp4.json
+yolo-nas-pose 2024-12-19 22:28:45,873 INFO Processing current video file: ../input_videos/Московская-04_30fps_5.mp4
+yolo-nas-pose 2024-12-19 22:29:08,700 INFO Have 113 matched bboxes for chain 9
+yolo-nas-pose 2024-12-19 22:29:35,224 INFO Have 113 matched bboxes for chain 7
+yolo-nas-pose 2024-12-19 22:29:35,872 INFO Have 0 matched bboxes for chain 8
+yolo-nas-pose 2024-12-19 22:29:52,434 INFO Have 29 matched bboxes for chain 4
+yolo-nas-pose 2024-12-19 22:30:03,538 INFO Have 114 matched bboxes for chain 1
+yolo-nas-pose 2024-12-19 22:30:23,075 INFO Have 171 matched bboxes for chain 3
+yolo-nas-pose 2024-12-19 22:30:24,388 INFO Have 0 matched bboxes for chain 2
+yolo-nas-pose 2024-12-19 22:30:24,667 INFO Inference results for Московская-04_30fps_5.mp4 saved and recorded into ../output/Московская-04_30fps_5.mp4.json
+yolo-nas-pose 2024-12-19 22:30:24,699 INFO Inference results for Московская-04_30fps_5.mp4 saved and recorded into ../output/Московская-04_30fps_5.mp4_add.json
+yolo-nas-pose 2024-12-19 22:30:24,705 INFO Processing current input JSON file: ../input_data/IN_Московская-04_30fps_4.mp4.json
+yolo-nas-pose 2024-12-19 22:30:25,497 INFO Processing current video file: ../input_videos/Московская-04_30fps_4.mp4
+yolo-nas-pose 2024-12-19 22:31:04,555 INFO Have 177 matched bboxes for chain 13
+yolo-nas-pose 2024-12-19 22:31:23,486 INFO Have 139 matched bboxes for chain 11
+yolo-nas-pose 2024-12-19 22:31:39,182 INFO Have 77 matched bboxes for chain 17
+yolo-nas-pose 2024-12-19 22:32:16,404 INFO Have 51 matched bboxes for chain 15
+yolo-nas-pose 2024-12-19 22:32:46,915 INFO Have 185 matched bboxes for chain 14
+yolo-nas-pose 2024-12-19 22:32:57,447 INFO Have 51 matched bboxes for chain 12
+yolo-nas-pose 2024-12-19 22:33:13,458 INFO Have 150 matched bboxes for chain 10
+yolo-nas-pose 2024-12-19 22:33:15,206 INFO Have 0 matched bboxes for chain 16
+yolo-nas-pose 2024-12-19 22:33:15,654 INFO Inference results for Московская-04_30fps_4.mp4 saved and recorded into ../output/Московская-04_30fps_4.mp4.json
+yolo-nas-pose 2024-12-19 22:33:15,714 INFO Inference results for Московская-04_30fps_4.mp4 saved and recorded into ../output/Московская-04_30fps_4.mp4_add.json

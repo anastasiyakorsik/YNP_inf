@@ -8,7 +8,7 @@ import cv2
 
 from inference.prediction_processor import get_prediction_per_frame, compare_bboxes, calculate_chain_vector
 from inference.video_processor import get_frame_times, check_video_extension
-from inferecne.bbox_processing import filter_bboxes_with_content, draw_bboxes_and_save
+from inference.bbox_processing import filter_bboxes_with_content, draw_bboxes_and_save, OUT_FRAMES
 
 from common.data_classes import OutputData, File, Chain, Markup, MarkupPath, save_class_in_json
 from common.json_processing import load_json, save_json
@@ -201,7 +201,9 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
                         for i in range (len(predicted_bboxes)):
                             detected_bbox = predicted_bboxes[i]
                             
-                            draw_bboxes_and_save(cur_frame_obj, frame, detected_bbox, input_markup_path)
+                            out_frame_name = f"{file_name}_chain_{chain['chain_name']}_frame_{frame}.png"
+                            
+                            draw_bboxes_and_save(cur_frame_obj, frame, out_frame_name, detected_bbox, input_markup_path)
 
                             if filter_bboxes_with_content(input_markup_path, detected_bbox, cur_frame_obj):
 
