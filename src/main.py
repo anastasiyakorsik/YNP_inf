@@ -82,7 +82,7 @@ def main():
         reload_model = False
 
         if training_mode:
-            py_logger.info("Start training")
+            py_logger.info("Started training")
             train_mode(model, json_files, WEIGHTS_PATH, cs)
             reload_model = True
         

@@ -24,12 +24,11 @@ from common.generate_callback_data import generate_error_data, generate_progress
 from inference.video_processor import get_frame_times, check_video_extension
 
 
-def extract_frames_from_videos(input_data: dict, video_paths: list, output_folder: str, cs = None):
+def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None):
     """
     Extract frames from videos and save them to the output folder.
 
     Parameters:
-        input_data (dict): Input JSON data for one video
         video_paths (list): List of video file paths.
         output_folder (str): Folder where frames will be saved.
         cs (obj): ContainerStatus object
@@ -40,9 +39,8 @@ def extract_frames_from_videos(input_data: dict, video_paths: list, output_folde
         if not os.path.exists(extract_frames_folder):
             os.makedirs(extract_frames_folder)
 
-        for video_id, video_ann in enumerate(input_data['files']):
-            video_path = video_paths[video_id]
-            chains = video_ann["file_chains"]
+        frame_count = 0
+        for video_path in video_paths:
 
             if not os.path.exists(video_path):
                 py_logger.error(f"Video file not found: {video_path}")
@@ -53,33 +51,63 @@ def extract_frames_from_videos(input_data: dict, video_paths: list, output_folde
                 py_logger.error(f"Failed to open video: {video_path}")
                 continue
 
-            for chain in chains:
-                for markup in chain["chain_markups"]:
-                    frame_number = markup["markup_frame"]
+            video_name = os.path.splitext(os.path.basename(video_path))[0]
 
-                    # Set the video frame position
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            success, frame = cap.read()
+            frame_idx = 0
 
-                    # Read the frame
-                    ret, frame = cap.read()
-                    if not ret:
-                        py_logger.error(f"Failed to read frame {frame_number} in {video_path}")
-                        continue
+            while success:
+                frame_path = os.path.join(extract_frames_folder, f"{video_name}_{frame_idx}.jpg")
+                cv2.imwrite(frame_path, frame)
+                frame_count += 1
+                success, frame = cap.read()
+                frame_idx += 1
 
-                    # Save the frame to the output directory
-                    video_name = os.path.splitext(os.path.basename(video_path))[0]
-                    output_path = os.path.join(extract_frames_folder, f"{video_name}_{frame_number}.jpg")
-                    cv2.imwrite(output_path, frame)
-                    py_logger.info(f"Saved: {output_path}")
+            py_logger.info(f"{frame_idx} frames from {video_name} has been extracted. Total amount of extracted frames: {frame_count}")
+            cap.release()
 
-            py_logger.info(f"{video_path} extracted")
-
-        py_logger.info(f"Extracting completed")
+        py_logger.info(f"Extracting completed. Total amount of extracted frames: {frame_count}")
 
         return extract_frames_folder
-
+    
     except Exception as err:
         py_logger.exception(f"Exception occured in training.train.extract_frames_from_videos() {err=}, {type(err)=}", exc_info=True)
+
+        # for video_id, video_ann in enumerate(input_data['files']):
+        #     video_path = video_paths[video_id]
+        #     chains = video_ann["file_chains"]
+
+        #     if not os.path.exists(video_path):
+        #         py_logger.error(f"Video file not found: {video_path}")
+        #         continue
+            
+        #     cap = cv2.VideoCapture(video_path)
+        #     if not cap.isOpened():
+        #         py_logger.error(f"Failed to open video: {video_path}")
+        #         continue
+
+        #     for chain in chains:
+        #         for markup in chain["chain_markups"]:
+        #             frame_number = markup["markup_frame"]
+
+        #             # Set the video frame position
+        #             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+
+        #             # Read the frame
+        #             ret, frame = cap.read()
+        #             if not ret:
+        #                 py_logger.error(f"Failed to read frame {frame_number} in {video_path}")
+        #                 continue
+
+        #             # Save the frame to the output directory
+        #             video_name = os.path.splitext(os.path.basename(video_path))[0]
+        #             output_path = os.path.join(extract_frames_folder, f"{video_name}_{frame_number}.jpg")
+        #             cv2.imwrite(output_path, frame)
+        #             py_logger.info(f"Saved: {output_path}")
+
+            #  py_logger.info(f"{video_path} extracted")
+
+        # py_logger.info(f"Extracting completed")
 
 
 def train_val_split(images_path: str, full_tmp_training_path: str, coco_data: dict, split_ratio: float = 0.2):
@@ -276,8 +304,8 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
             all_videos_names.append(full_file_name)
 
         # Extract frames from all videos
-        save_json(all_json_data, os.path.join(full_tmp_training_path,"all_json_data.json"))
-        frames_folder = extract_frames_from_videos(all_json_data, all_videos_names, full_tmp_training_path)
+        save_json(all_json_data, os.path.join(full_tmp_training_path, "all_json_data.json"))
+        frames_folder = extract_frames_from_videos(all_videos_names, full_tmp_training_path)
 
         # Convert data to COCO format        
         coco_ann_file = "coco_ann.json"
@@ -302,5 +330,5 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
         # Start training
         training(model, train_config)
 
-    except Exception as e:
-        print(f"ERROR - train_mode failed: {e}")
+    except Exception as err:
+        py_logger.exception(f"Exception occured in training.train.train_mode() {err=}, {type(err)=}", exc_info=True)
