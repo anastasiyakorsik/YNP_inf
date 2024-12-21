@@ -11,7 +11,7 @@ import torch
 from super_gradients.training import models
 
 from inference.inference import inference_mode
-# from train.train_yolonas_pose import train_mode
+from training.train import train_mode
 from common.container_status import ContainerStatus as CS
 from common.generate_callback_data import generate_error_data, generate_progress_data
 
@@ -82,8 +82,8 @@ def main():
         reload_model = False
 
         if training_mode:
-            # train_mode(model, data)
-            print('Training mode is under development')
+            py_logger.info("Start training")
+            train_mode(model, json_files, WEIGHTS_PATH, cs)
             reload_model = True
         
         if reload_model:
