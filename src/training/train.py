@@ -194,6 +194,10 @@ def training(model, config):
     Train the YOLO-NAS Pose model and save model weights.
     """
     try:
+        ckpt_path = os.path.join(config["train_dir"], "checkpoints") 
+        if not os.path.exists(ckpt_path):
+            os.makedirs(ckpt_path)
+
         train_transforms, val_transforms = define_set_transformations()
         NUM_EPOCHS = config.get("NUM_EPOCHS", 10)
         WEIGHTS_PATH = config["weights_path"]
@@ -225,15 +229,19 @@ def training(model, config):
             val_dataset, shuffle=True, batch_size=16, drop_last=False, pin_memory=False, collate_fn=YoloNASPoseCollateFN()
         )
 
-        trainer = Trainer(experiment_name="yolo_nas_pose_run", ckpt_root_dir="WEIGHTS_PATH")
+        trainer = Trainer(experiment_name="yolo_nas_pose_run", ckpt_root_dir=ckpt_path)
         train_params = define_train_params(NUM_EPOCHS)
 
-        py_logger.info("INFO - Starting training...")
+        # py_logger.info("INFO - Starting training...")
         start_time = time.time()
         trainer.train(model, training_params=train_params, train_loader=train_dataloader, valid_loader=val_dataloader)
         py_logger.info(f"INFO - Training completed in {time.time() - start_time:.2f}s")
 
-        model.save_checkpoint(WEIGHTS_PATH, full_weights=True)
+        best_weights_path = os.path.join(os.path.join(ckpt_path, "yolo_nas_pose_run"), "ckpt_best.pth")
+
+        shutil.copy(best_weights_path, WEIGHTS_PATH)
+        py_logger.info(f"INFO - Weights are updated")
+
     except Exception as e:
         py_logger.error(f"ERROR - Training failed: {e}")
 

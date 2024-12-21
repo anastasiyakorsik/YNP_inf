@@ -56,25 +56,24 @@ def convert_bbox(markup_path):
     """
     bbox = markup_path[0]
     return [
-        round(bbox["x"], 2),
-        round(bbox["y"], 2),
-        round(bbox["width"], 2),
-        round(bbox["height"], 2)
+        bbox["x"],
+        bbox["y"],
+        bbox["width"],
+        bbox["height"]
     ]
 
 
-def convert_keypoints(markup_vector):
+def convert_keypoints(markup_path):
     """
     Convert keypoint annotations to COCO format.
     """
     keypoints = []
     num_keypoints = 0
-    for node in markup_vector["nodes"]:
+    for node in markup_path["nodes"]:
         key = list(node.keys())[0]
         point = node[key]
-        x, y, score = point["x"], point["y"], point["score"]
-        visibility = 2 if score > 0.5 else 1  # Visible or labeled but not visible
-        keypoints.extend([round(x, 2), round(y, 2), visibility])
+        x, y = point["x"], point["y"]
+        keypoints.extend([x, y, 2]) # visibility = 2
         num_keypoints += 1
     return keypoints, num_keypoints
 
@@ -122,8 +121,8 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
                     for markup in chain["chain_markups"]:
                         if markup["markup_frame"] == frame_id:
                             annotation_id = generate_unique_id()
-                            bbox = convert_bbox(markup["markup_path"])
-                            keypoints, num_keypoints = convert_keypoints(markup["markup_vector"])
+                            bbox = convert_bbox(markup["markup_path"]) # пересмотреть
+                            keypoints, num_keypoints = convert_keypoints(markup["markup_path"]) # переписать  
 
                             coco_data["annotations"].append({
                                 "id": annotation_id,
