@@ -1,18 +1,17 @@
 import os
 import time
 import json
-import yaml
 import shutil
-from typing import Union
 import random
+
 from super_gradients.training import Trainer
 from super_gradients.training.datasets.pose_estimation_datasets import YoloNASPoseCollateFN
 from torch.utils.data import DataLoader
 
-from train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
-from keypoint_transforms import define_set_transformations
-from pose_estimation_dataset import PoseEstimationDataset
-from convert import convert_to_coco
+from training.train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
+from training.keypoint_transforms import define_set_transformations
+from training.pose_estimation_dataset import PoseEstimationDataset
+from training.convert import convert_to_coco
 
 import cv2
 from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
@@ -25,28 +24,12 @@ from common.generate_callback_data import generate_error_data, generate_progress
 from inference.video_processor import get_frame_times, check_video_extension
 
 
-def open_file(file_path: str) -> Union[dict, list, None]:
-    """
-    Opens and reads the content of a JSON or YAML file.
-    """
-    try:
-        with open(file_path, 'r') as file:
-            if file_path.endswith('.json'):
-                return json.load(file)
-            elif file_path.endswith(('.yaml', '.yml')):
-                return yaml.safe_load(file)
-            else:
-                raise ValueError(f'Unsupported file format: {file_path}')
-    except Exception as e:
-        print(f'ERROR - An error occurred in open_file: {e}')
-        return None
-
-
 def extract_frames_from_videos(input_data: dict, video_paths: list, output_folder: str, cs = None):
     """
     Extract frames from videos and save them to the output folder.
 
     Parameters:
+        input_data (dict): Input JSON data for one video
         video_paths (list): List of video file paths.
         output_folder (str): Folder where frames will be saved.
         cs (obj): ContainerStatus object
@@ -288,11 +271,12 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
                     cs.post_error(generate_error_data(f"Failed to train on {file_name}. File extension doens't match appropriate ones.", file_name))
                 continue  # Skip if file extension doens't match appropriate ones    
 
-            all_json_data["files"].extend(input_data)
+            all_json_data["files"].append(input_data)
 
             all_videos_names.append(full_file_name)
 
         # Extract frames from all videos
+        save_json(all_json_data, os.path.join(full_tmp_training_path,"all_json_data.json"))
         frames_folder = extract_frames_from_videos(all_json_data, all_videos_names, full_tmp_training_path)
 
         # Convert data to COCO format        
