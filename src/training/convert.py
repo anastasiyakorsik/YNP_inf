@@ -64,12 +64,11 @@ def convert_bbox(markup_path):
     Convert bounding box information to COCO format.
     """
     try:    
-        bbox = markup_path[0]
         return [
-            bbox["x"],
-            bbox["y"],
-            bbox["width"],
-            bbox["height"]
+            markup_path["x"],
+            markup_path["y"],
+            markup_path["width"],
+            markup_path["height"]
         ]
     except Exception as err:
         py_logger.exception(f"Exception occured in training.convert.convert_bbox() {err=}, {type(err)=}", exc_info=True)
@@ -83,12 +82,12 @@ def convert_keypoints(markup_path):
     try:
         keypoints = []
         num_keypoints = 0
-        for node in markup_path["nodes"]:
-            key = list(node.keys())[0]
-            point = node[key]
-            x, y, score = point["x"], point["y"], point["score"]
+        for key, value in markup_path["nodes"].items():
+            #key = list(node.keys())[0]
+            #point = node[key]
+            x, y, score = value["x"], value["y"], value["score"]
             visibility = 2 if score > 0.5 else 1  # Visible or labeled but not visible
-            keypoints.extend(x, y, visibility)
+            keypoints.extend([x, y, visibility])
             num_keypoints += 1
         return keypoints, num_keypoints
     except Exception as err:
@@ -106,7 +105,7 @@ def extract_image_dimensions(image_path):
         py_logger.exception(f"Exception occured in training.convert.extract_image_dimensions() {err=}, {type(err)=}", exc_info=True)
 
 
-def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann_file):
+def convert_to_coco(input_json, frames_folder, extracted_frames, full_tmp_frames_path, coco_ann_file):
     """
     Convert YOLO-NAS-Pose annotations to COCO format.
     """
@@ -124,6 +123,7 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
             video_name, frame_number = frame_file.rsplit('_', 1)
             frame_id = int(frame_number.split('.')[0])
             image_id = generate_unique_id()
+            frame_path = os.path.join(frames_folder, frame_file)
             width, height = extract_image_dimensions(frame_path)
 
             # Add image info
@@ -154,7 +154,7 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
                                     "num_keypoints": num_keypoints,
                                     "iscrowd": 0
                                 })
-        coco_data_path = os.path.join(os.path.dirname(full_tmp_frames_path, coco_ann_file))
+        coco_data_path = os.path.join(os.path.dirname(full_tmp_frames_path), coco_ann_file)
         if coco_data:
             save_json(coco_data, coco_data_path)
         else:

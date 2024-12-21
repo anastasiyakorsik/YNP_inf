@@ -51,7 +51,7 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
                 py_logger.error(f"Failed to open video: {video_path}")
                 continue
 
-            video_name = os.path.splitext(os.path.basename(video_path))[0]
+            video_name = os.path.basename(video_path)
 
             success, frame = cap.read()
             frame_idx = 0
@@ -127,8 +127,8 @@ def train_val_split(images_path: str, full_tmp_training_path: str, coco_data: di
     random.shuffle(images)
 
     split_index = int(len(images) * split_ratio)
-    train_images = images[:split_index]
-    val_images = images[split_index:]
+    train_images = images[split_index:]
+    val_images = images[:split_index]
 
     train_annotations = {"info": coco_data['info'], "images": train_images, "annotations": [], "categories": coco_data['categories']}
     val_annotations = {"info": coco_data['info'], "images": val_images, "annotations": [], "categories": coco_data['categories']}
@@ -309,10 +309,10 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
 
         # Convert data to COCO format        
         coco_ann_file = "coco_ann.json"
-        coco_data_path, coco_data = convert_to_coco(all_json_data, frames_folder, full_tmp_training_path, coco_ann_file)
+        coco_data_path, coco_data = convert_to_coco(all_json_data, frames_folder, os.listdir(frames_folder), full_tmp_training_path, coco_ann_file)
 
         # Split frames into train and validation sets
-        train_folder, val_folder, train_coco_ann, val_coco_ann = train_val_split(frames_folder, full_tmp_training_path, coco_data, val_split=0.2)
+        train_folder, val_folder, train_coco_ann, val_coco_ann = train_val_split(frames_folder, full_tmp_training_path, coco_data)
 
 
         # Configure training parameters
