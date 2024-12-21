@@ -155,7 +155,10 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
                                     "iscrowd": 0
                                 })
         coco_data_path = os.path.join(os.path.dirname(full_tmp_frames_path, coco_ann_file))
-        save_json(coco_data, coco_data_path)
+        if coco_data:
+            save_json(coco_data, coco_data_path)
+        else:
+            py_logger.error(f"coco_data IS EMPTY")
         py_logger.info(f"INFO - COCO annotations saved to {coco_data_path}")
         return coco_data_path, coco_data
     except Exception as err:
