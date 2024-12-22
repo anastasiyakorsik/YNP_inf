@@ -157,10 +157,10 @@ def train_val_split(images_path: str, full_tmp_training_path: str, coco_data: di
         shutil.copyfile(os.path.join(images_path, img['file_name']), os.path.join(val_folder, img['file_name']))
 
     py_logger.info(f"INFO - Split data: {len(train_images)} train frames, {len(val_images)} val frames")
-    
-    return train_folder, val_folder, os.path.join(full_tmp_training_path, "train_coco_ann.json"), os.path.join(full_tmp_training_path, "val_coco_ann.json")
 
+    #return train_folder, val_folder, os.path.join(full_tmp_training_path, "train_coco_ann.json"), os.path.join(full_tmp_training_path, "val_coco_ann.json")
 
+    return os.path.relpath(train_folder, full_tmp_training_path), os.path.relpath(val_folder, full_tmp_training_path), "train_coco_ann.json", "val_coco_ann.json"
 
 
     # frame_files = [f for f in os.listdir(images_dir) if f.endswith(".jpg")]
@@ -209,9 +209,13 @@ def training(model, config):
         if not os.path.exists(ckpt_path):
             os.makedirs(ckpt_path)
 
+        py_logger.info(f"INFO - Training chekpoint path created")
+
         train_transforms, val_transforms = define_set_transformations()
         NUM_EPOCHS = config.get("NUM_EPOCHS", 10)
         WEIGHTS_PATH = config["weights_path"]
+
+        py_logger.info(f"INFO - Train data transformations defined")
 
         train_dataset = PoseEstimationDataset(
             data_dir=config["train_dir"],
@@ -233,6 +237,8 @@ def training(model, config):
             keypoint_colors=KEYPOINT_COLORS,
         )
 
+        py_logger.info(f"INFO - Train datasets created")
+
         train_dataloader = DataLoader(
             train_dataset, shuffle=True, batch_size=16, drop_last=True, pin_memory=False, collate_fn=YoloNASPoseCollateFN()
         )
@@ -240,11 +246,17 @@ def training(model, config):
             val_dataset, shuffle=True, batch_size=16, drop_last=False, pin_memory=False, collate_fn=YoloNASPoseCollateFN()
         )
 
+        py_logger.info(f"INFO - Train dataloaders created")
+
         trainer = Trainer(experiment_name="yolo_nas_pose_run", ckpt_root_dir=ckpt_path)
+
+        py_logger.info(f"INFO - Train class created")
+
         train_params = define_train_params(NUM_EPOCHS)
 
         # py_logger.info("INFO - Starting training...")
         start_time = time.time()
+        py_logger.info(f"INFO - Train process starting")
         trainer.train(model, training_params=train_params, train_loader=train_dataloader, valid_loader=val_dataloader)
         py_logger.info(f"INFO - Training completed in {time.time() - start_time:.2f}s")
 
