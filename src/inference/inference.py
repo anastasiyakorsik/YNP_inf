@@ -3,10 +3,11 @@ import uuid
 import os
 from tqdm import tqdm
 from typing import Type
+import statistics
 
 import cv2
 
-from inference.prediction_processor import get_prediction_per_frame, compare_bboxes, calculate_chain_vector
+from inference.prediction_processor import get_prediction_per_frame, compare_bboxes, calculate_chain_vector, calc_mean
 from inference.video_processor import get_frame_times, check_video_extension
 from inference.bbox_processing import filter_bboxes_with_content, draw_bboxes_and_save, OUT_FRAMES
 
@@ -17,7 +18,7 @@ from common.logger import py_logger
 
 from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
 
-def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, frame_times: list, cs = None):
+def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, frame_times: list, progress: float, cs = None):
     """
     Creates additional JSON file with unmatched bboxes and skeletones in new chains
 
@@ -26,6 +27,7 @@ def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, f
         predictions (list): Model predictions for video
         matched_bboxes (list): Predicted bboxes that matched input ones
         frame_times (list): Calculated times of video frames
+        progress (float): Progress percent 
         cs (obj): ContainerStatus object
         
     Returns:
@@ -41,7 +43,7 @@ def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, f
         output_add_data = OutputData()
         output_add_data.files = []
 
-        output_add_file_data = File(file_id = input_data['file_id'], file_name = file_name)
+        output_add_file_data = File(file_id = input_data.get('file_id', ''), file_name = file_name)
         output_add_file_data.file_chains = []
 
         for pred in predictions:
@@ -74,9 +76,11 @@ def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, f
                     out_markup.markup_path = out_markup_path
                     out_markup.markup_id = str(int(uuid.uuid4().int >> 64) % 1000000)
                     out_markup.markup_vector = predicted_scores[i]
+                    out_markup.markup_confidence = statistics.fmean(predicted_scores[i])
 
                     out_add_chain.chain_markups.append(out_markup)
                     out_add_chain.chain_vector = predicted_scores[i]
+                    out_add_chain.chain_confidence = statistics.fmean(predicted_scores[i])
 
                     output_add_file_data.file_chains.append(out_add_chain)
 
@@ -129,7 +133,7 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
         output_data = OutputData()
         output_data.files = []
 
-        output_file_data = File(file_id = input_data['file_id'], file_name = file_name)
+        output_file_data = File(file_id = input_data.get('file_id', ''), file_name = file_name)
         output_file_data.file_chains = []
 
         # Inference for each frame of video
@@ -161,17 +165,19 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
 
             # create new chain with input and added info to save if bboxes matched
             out_chain = Chain()
-            out_chain.chain_name = chain['chain_name']
+            out_chain.chain_name = chain.get('chain_name', '')
             out_chain.chain_markups = []
 
-            input_chain_vector = chain['chain_vector']
+            input_chain_vector = chain.get('chain_vector', [])
             # array of markup_vectors per chain for calculating chain_vector
             predicted_markup_vectors = []
+            # array of markup_confidence per chain for calculating chain_confidence
+            predicted_markup_confidence = []
 
             for markup in chain.get('chain_markups', []):
                 out_markup = Markup()
 
-                markup_frame = markup['markup_frame']
+                markup_frame = markup.get('markup_frame', '')
 
                 complete_step = False
 
@@ -203,7 +209,7 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
                             
                             out_frame_name = f"{file_name}_chain_{chain['chain_name']}_frame_{frame}.png"
                             
-                            draw_bboxes_and_save(cur_frame_obj, frame, out_frame_name, detected_bbox, input_markup_path)
+                            # draw_bboxes_and_save(cur_frame_obj, frame, out_frame_name, detected_bbox, input_markup_path)
 
                             if filter_bboxes_with_content(input_markup_path, detected_bbox, cur_frame_obj):
 
@@ -212,6 +218,7 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
                                 detected_person_nodes = predicted_nodes[i]
 
                                 out_markup_path = MarkupPath()
+                                out_markup_path.x, out_markup_path.y, out_markup_path.width, out_markup_path.height = input_markup_path['x'], input_markup_path['y'], input_markup_path['width'], input_markup_path['height']
                                 out_markup_path.nodes = detected_person_nodes
                                 out_markup_path.edges = predicted_edges
                                 
@@ -222,8 +229,13 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
                                 #print("BBoxes matched")
                                 matched_chain_bboxes += 1
 
-                                out_markup.markup_parent_id = markup['markup_id']
+                                out_markup.markup_parent_id = markup.get('markup_id', '')
                                 out_markup.markup_vector = markup['markup_vector'] + predicted_scores[i]
+                                
+                                
+                                mean_conf_score = statistics.fmean(predicted_scores[i])
+                                out_markup.markup_confidence = mean_conf_score
+                                predicted_markup_confidence.append(mean_conf_score)
 
                                 out_chain.chain_markups.append(out_markup)
                                 complete_step = True
@@ -234,9 +246,12 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
 
                 
                 out_chain.chain_vector = calculate_chain_vector(input_chain_vector, predicted_markup_vectors)
+                # print(predicted_markup_confidence)
+                if predicted_markup_confidence:
+                    out_chain.chain_confidence = statistics.fmean(predicted_markup_confidence)
                     
             py_logger.info(f"Have {matched_chain_bboxes} matched bboxes for chain {chain['chain_name']}")
-            
+                    
             if out_chain.chain_markups:
                 output_file_data.file_chains.append(out_chain)
 
@@ -250,7 +265,7 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
         if cs is not None:
             cs.post_progress(generate_progress_data("processed", progress, out_json_path))
 
-        out_json_add_path = create_add_json(input_data, preds, matched_pred_bboxes, frame_times, cs)
+        out_json_add_path = create_add_json(input_data, preds, matched_pred_bboxes, frame_times, progress, cs)
         
         return out_json_path, out_json_add_path
 
@@ -280,34 +295,38 @@ def inference_mode(model, json_files: list, cs = None):
             full_json_path = os.path.join(INPUT_DATA_PATH, json_file)
             py_logger.info(f"Processing current input JSON file: {full_json_path}")
             data = load_json(full_json_path)
-
-            input_data = data['files'][0]
-            file_name = os.path.basename(input_data['file_name'])
-            full_file_name = os.path.join(INPUT_PATH, file_name)
-            py_logger.info(f"Processing current video file: {full_file_name}")
-
-            if not os.path.exists(full_file_name):
-                py_logger.error(f"Failed to create predictions for {file_name}. File does not exist.")
-                if cs is not None:
-                    cs.post_error(generate_error_data(f"Failed to create predictions for {file_name}. File does not exist.", file_name))
-                continue  # Skip if file does not exist
-                
-            if not check_video_extension(file_name):
-                py_logger.error(f"Failed to create predictions for {file_name}. File extension doens't match appropriate ones.")
-                if cs is not None:
-                    cs.post_error(generate_error_data(f"Failed to create predictions for {file_name}. File extension doens't match appropriate ones.", file_name))
-                continue  # Skip if file extension doens't match appropriate ones
-
-            # Make and process model predictions for video
-            file_num += 1
-            progress = round((file_num) / len(json_files) * 100, 2)
-
-            frame_times = get_frame_times(full_file_name)
-            out_file, out_add_file = create_json_with_predictions(input_data, frame_times, model, progress, cs)
             
-            output_files.append(out_file)
-            if out_add_file is not None:
-                output_files.append(out_add_file)
+            if data:
+                input_data = data['files'][0]
+                file_name = os.path.basename(input_data['file_name'])
+                full_file_name = os.path.join(INPUT_PATH, file_name)
+                py_logger.info(f"Processing current video file: {full_file_name}")
+
+                if not os.path.exists(full_file_name):
+                    py_logger.error(f"Failed to create predictions for {file_name}. File does not exist.")
+                    if cs is not None:
+                        cs.post_error(generate_error_data(f"Failed to create predictions for {file_name}. File does not exist.", file_name))
+                    continue  # Skip if file does not exist
+                
+                if not check_video_extension(file_name):
+                    py_logger.error(f"Failed to create predictions for {file_name}. File extension doens't match appropriate ones.")
+                    if cs is not None:
+                        cs.post_error(generate_error_data(f"Failed to create predictions for {file_name}. File extension doens't match appropriate ones.", file_name))
+                    continue  # Skip if file extension doens't match appropriate ones
+
+                # Make and process model predictions for video
+                file_num += 1
+                progress = round((file_num) / len(json_files) * 100, 2)
+
+                frame_times = get_frame_times(full_file_name)
+                out_file, out_add_file = create_json_with_predictions(input_data, frame_times, model, progress, cs)
+            
+                output_files.append(out_file)
+                if out_add_file is not None:
+                    output_files.append(out_add_file)
+            else:
+                py_logger.error(f"Failed to create predictions for {full_json_path}. File can not be read.")
+                continue
             
         if (len(output_files) == 0):
             py_logger.warning("No files have been processed.")
