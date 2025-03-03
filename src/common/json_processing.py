@@ -8,6 +8,7 @@ def load_json(input_arg: str) -> dict:
     """
     Loads JSON file
     """
+    data = {}
     try:  
         if os.path.isfile(input_arg):
             with open(input_arg, 'rb') as fp:
@@ -22,6 +23,7 @@ def load_json(input_arg: str) -> dict:
         return data
     except Exception as e:
         py_logger.exception(f'Exception occurred in json_processing.load_json(): {e}', exc_info=True)
+        return data
 
 def save_json(data: dict, output_path: str):
     """
