@@ -27,7 +27,7 @@ def create_pkl(filename: str, data):
     except Exception as e:
         py_logger.exception(f'Exception occurred in pkl_processing.create_pkl(): {e}', exc_info=True)
 
-def define_pkl_name(file_name: str):
+def define_pkl_name(file_name: str, add: bool = False):
     """
      
     """
@@ -36,6 +36,9 @@ def define_pkl_name(file_name: str):
 
     chains_vectors_in = os.path.join(INPUT_PATH, chains_vectors)
     markups_vectors_in = os.path.join(INPUT_PATH, markups_vectors)
+    
+    chains_vectors = 'add_' + chains_vectors
+    markups_vectors = 'add_' + markups_vectors 
 
     chains_vectors_out = os.path.join(OUTPUT_PATH, chains_vectors)
     markups_vectors_out = os.path.join(OUTPUT_PATH, markups_vectors)
