@@ -46,7 +46,7 @@ def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, f
         markups_vectors = []
 
         # Create .pkl file output name for chains and markups
-        pkl_chains_vectors, pkl_markups_vectors, pkl_chains_vectors_in, pkl_markups_vectors_in, pkl_chains_vectors_out, pkl_markups_vectors_out = define_pkl_name(file_name)
+        pkl_chains_vectors, pkl_markups_vectors, pkl_chains_vectors_in, pkl_markups_vectors_in, pkl_chains_vectors_out, pkl_markups_vectors_out = define_pkl_name(file_name, True)
         pkl_chains_vectors_out = 'add_' + pkl_chains_vectors_out 
         pkl_markups_vectors_out = 'add_' + pkl_markups_vectors_out
 
