@@ -12,6 +12,7 @@ from super_gradients.training import models
 
 from inference.inference import inference_mode
 from training.train import train_mode
+from common.json_processing import load_json
 from common.container_status import ContainerStatus as CS
 from common.generate_callback_data import generate_error_data, generate_progress_data
 
@@ -33,7 +34,7 @@ py_logger.addHandler(py_handler)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Process input data and work format.')
-    parser.add_argument('--input_data', type=str, default='', help='Necessary input data in JSON format')
+    parser.add_argument('--input_data', type=str, default='{}', help='Necessary input data in string JSON format')
     parser.add_argument('--host_web', type=str, default='', help='Callback url')
     parser.add_argument('--work_format_training', action='store_true', default=False, help='Program mode')
     return parser.parse_args()
@@ -42,21 +43,14 @@ def main():
     try:
         args = parse_arguments()
         # sample: input_data = {"weights_file": "yolo_nas_pose_l_coco_pose.pth", "model_size": "l", "epochs_num": 5}
-        input_data = args.input_data
+        input_data = load_json(args.input_data)
         host_web = args.host_web
         training_mode = args.work_format_training
         
-        weights_file = WEIGHTS_FILE
-        model_size = MODEL_SIZE
-        epochs_num = EPOCHS_NUM
+        weights_file = input_data.get("weights_file", WEIGHTS_FILE)
+        model_size = input_data.get("model_size", MODEL_SIZE)
+        epochs_num = input_data.get("epochs_num", EPOCHS_NUM)
 
-        if input_data:
-            try:
-                weights_file = input_data["weights_file"]
-                model_size = input_data["model_size"]
-                epochs_num = input_data["epochs_num"]
-            except Exception as ex:
-                py_logger.error(f"Failed to load necessary input params from given input_data: {input_data}. Default params will be used.")
             
         # get all JSON files for each video from input_data directory
         json_files = os.listdir(INPUT_DATA_PATH)
@@ -82,7 +76,7 @@ def main():
         reload_model = False
 
         if training_mode:
-            py_logger.info("Started training")
+            py_logger.info("Start training")
             train_mode(model, json_files, WEIGHTS_PATH, cs)
             reload_model = True
         
@@ -94,10 +88,16 @@ def main():
 
         # for each video go inference and create output json with new data
         py_logger.info("Start inference")
-        output_files = inference_mode(model, json_files, cs)
+        inference_result = inference_mode(model, json_files, cs)
         
-        if cs is not None:
-            cs.post_end({"out_files": output_files})
+        if inference_result:
+            py_logger.info(f"Inference result: {inference_result}")
+            if cs is not None:
+                cs.post_end({})
+        else:
+            py_logger.error(f"No inference result")
+            if cs is not None:
+                cs.post_error(generate_error_data(f"No inference result"))
             
     except Exception as err:
         py_logger.exception(f"Exception occurred in main(): {err}",exc_info=True)
