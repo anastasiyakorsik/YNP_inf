@@ -4,6 +4,7 @@ import os
 from tqdm import tqdm
 from typing import Type
 import statistics
+import pickle
 
 import cv2
 
@@ -13,6 +14,7 @@ from inference.bbox_processing import filter_bboxes_with_content, draw_bboxes_an
 
 from common.data_classes import OutputData, File, Chain, Markup, MarkupPath, save_class_in_json
 from common.json_processing import load_json, save_json
+from common.pkl_processing import read_pkl, create_pkl, define_pkl_name
 from common.generate_callback_data import generate_error_data, generate_progress_data
 from common.logger import py_logger
 
@@ -31,13 +33,25 @@ def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, f
         cs (obj): ContainerStatus object
         
     Returns:
-        Name of additional output file if is not empty, else - None
+        Dict containing out_add_file name, chains and markups counts for file
     """
+    chains_count = 0
+    markups_count = 0
+    out_add_result = {}
     try:
         file_name = os.path.basename(input_data['file_name'])
 
+        # Create arrays for big chains_vectors and markups_vectors for writing in .pkl files
+        chains_vectors = []
+        markups_vectors = []
+
+        # Create .pkl file output name for chains and markups
+        pkl_chains_vectors, pkl_markups_vectors, pkl_chains_vectors_in, pkl_markups_vectors_in, pkl_chains_vectors_out, pkl_markups_vectors_out = define_pkl_name(file_name)
+        pkl_chains_vectors_out = 'add_' + pkl_chains_vectors_out 
+        pkl_markups_vectors_out = 'add_' + pkl_markups_vectors_out
+
         # Output JSON file name for recording new bboxes
-        out_json_add = file_name + '_add.json'
+        out_json_add = 'OUT_' + file_name + '_add.json'
         out_json_add_path = os.path.join(OUTPUT_PATH, out_json_add)
 
         output_add_data = OutputData()
@@ -75,33 +89,52 @@ def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, f
                                     
                     out_markup.markup_path = out_markup_path
                     out_markup.markup_id = str(int(uuid.uuid4().int >> 64) % 1000000)
-                    out_markup.markup_vector = predicted_scores[i]
+                    markups_vectors.append(predicted_scores[i])
+                    out_markup.markup_vector = markups_count
                     out_markup.markup_confidence = statistics.fmean(predicted_scores[i])
+                    markups_count += 1
 
                     out_add_chain.chain_markups.append(out_markup)
-                    out_add_chain.chain_vector = predicted_scores[i]
+                    chains_vectors.append(predicted_scores[i])
+                    out_add_chain.chain_vector = chains_count
                     out_add_chain.chain_confidence = statistics.fmean(predicted_scores[i])
+                    chains_count += 1
 
                     output_add_file_data.file_chains.append(out_add_chain)
 
         if output_add_file_data:
-            output_add_data.files.append(output_add_file_data)
 
+            # Save chains and markups vectors in .pkl files
+            create_pkl(pkl_chains_vectors_out, chains_vectors)
+            create_pkl(pkl_markups_vectors_out, markups_vectors)
+
+            py_logger.info(f"Additional chains vectors for {file_name} saved and recorded into {pkl_chains_vectors_out}")
+            py_logger.info(f"Additional markups vectors for {file_name} saved and recorded into {pkl_markups_vectors_out}")
+            if cs is not None:
+                cs.post_progress(generate_progress_data("3 of 4", progress, pkl_chains_vectors))
+                cs.post_progress(generate_progress_data("3 of 4", progress, pkl_markups_vectors))
+
+            output_add_data.files.append(output_add_file_data)
             save_class_in_json(output_add_data, out_json_add_path)
 
             py_logger.info(f"Inference results for {file_name} saved and recorded into {out_json_add_path}")
             if cs is not None:
-                cs.post_progress(generate_progress_data("processed", progress, out_json_add_path))
+                cs.post_progress(generate_progress_data("4 of 4", progress, out_json_add, chains_count, markups_count))
+
+            out_add_result["out_file"] = out_json_add
+            out_add_result["chains_count"] = chains_count
+            out_add_result["markups_count"] = markups_count
             
-            return out_json_add_path
+            return out_add_result
         else:
-            py_logger.info("No unmatched bboxes recorded")
-            return None
+            py_logger.info(f"No unmatched bboxes recorded for {file_name}")
+            return out_add_result
 
     except Exception as e:
         py_logger.exception(f'Exception occurred in inference.create_add_json(): {e}', exc_info=True)
         if cs is not None:
             cs.post_error(generate_error_data(f"Failed to inference. Exception occurred in inference.create_add_json(): {e}"))
+        return out_add_result
 
 
 
@@ -120,13 +153,28 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
     Returns:
         Names of main and additional output files
     """
+    out_result_data = []
     try:
+        # Create arrays for big chains_vectors and markups_vectors for writing in .pkl files
+        chains_vectors = []
+        markups_vectors = []
+
+        chains_count = 0
+        markups_count = 0
+        out_main_result = {}
 
         file_name = os.path.basename(input_data['file_name'])
         full_file_name = os.path.join(INPUT_PATH, file_name)
+
+        # Create .pkl file name for chains and markups
+        pkl_chains_vectors, pkl_markups_vectors, pkl_chains_vectors_in, pkl_markups_vectors_in, pkl_chains_vectors_out, pkl_markups_vectors_out = define_pkl_name(file_name)
+
+        # Get data from chains and markups .pkl files
+        input_chains_vectors = read_pkl(pkl_chains_vectors_in)
+        input_markups_vectors = read_pkl(pkl_markups_vectors_in)
             
         # Output JSON file name
-        out_json = file_name + '.json'
+        out_json = 'OUT_' + file_name + '.json'
         out_json_path = os.path.join(OUTPUT_PATH, out_json)
 
         # Dict for output collected data - collect new json data containing model predictions
@@ -165,6 +213,7 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
 
             # create new chain with input and added info to save if bboxes matched
             out_chain = Chain()
+            chains_count += 1
             out_chain.chain_name = chain.get('chain_name', '')
             out_chain.chain_markups = []
 
@@ -176,6 +225,7 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
 
             for markup in chain.get('chain_markups', []):
                 out_markup = Markup()
+                markups_count += 1
 
                 markup_frame = markup.get('markup_frame', '')
 
@@ -230,8 +280,19 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
                                 matched_chain_bboxes += 1
 
                                 out_markup.markup_parent_id = markup.get('markup_id', '')
-                                out_markup.markup_vector = markup['markup_vector'] + predicted_scores[i]
-                                
+
+                                input_markup_vector = markup.get('markup_vector', [])
+                                if input_markup_vector is not None:
+                                    if (type(input_markup_vector) == int):
+                                        in_markup_vector_val = input_markups_vectors[input_markup_vector]
+                                        out_markup.markup_vector = input_markup_vector
+                                        markups_vectors.append(in_markup_vector_val + predicted_scores[i])
+                                    else:
+                                        markups_vectors.append(input_markup_vector + predicted_scores[i])
+                                        out_markup.markup_vector = len(markups_vectors) - 1
+                                else:
+                                    markups_vectors.append(predicted_scores[i])
+                                    out_markup.markup_vector = len(markups_vectors) - 1
                                 
                                 mean_conf_score = statistics.fmean(predicted_scores[i])
                                 out_markup.markup_confidence = mean_conf_score
@@ -244,8 +305,19 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
                         if complete_step:
                             break
 
-                
-                out_chain.chain_vector = calculate_chain_vector(input_chain_vector, predicted_markup_vectors)
+                if input_chain_vector is not None:
+                    if (type(input_chain_vector) == int):
+                        in_chain_vector_val = input_chains_vectors[input_chain_vector]
+                        out_chain.chain_vector = input_chain_vector
+                        chains_vectors.append(calculate_chain_vector(in_chain_vector_val, predicted_markup_vectors))
+                    else:
+                        chains_vectors.append(calculate_chain_vector(input_chain_vector, predicted_markup_vectors))
+                        out_chain.chain_vector = len(chains_vectors) - 1
+                else:
+                    chains_vectors.append(predicted_markup_vectors)
+                    out_chain.chain_vector = len(chains_vectors) - 1
+
+
                 # print(predicted_markup_confidence)
                 if predicted_markup_confidence:
                     out_chain.chain_confidence = statistics.fmean(predicted_markup_confidence)
@@ -255,19 +327,35 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
             if out_chain.chain_markups:
                 output_file_data.file_chains.append(out_chain)
 
+        # Save .pkl files
+        # Save chains and markups vectors in .pkl files
+        create_pkl(pkl_chains_vectors_out, chains_vectors)    
+        create_pkl(pkl_markups_vectors_out, markups_vectors)
+
+        py_logger.info(f"Chains vectors for {file_name} saved and recorded into {pkl_chains_vectors_out}")
+        py_logger.info(f"Markups vectors for {file_name} saved and recorded into {pkl_markups_vectors_out}")
+        if cs is not None:
+            cs.post_progress(generate_progress_data("3 of 4", progress, pkl_chains_vectors))
+            cs.post_progress(generate_progress_data("3 of 4", progress, pkl_markups_vectors))
+
         # Save new JSON
         output_data.files.append(output_file_data)
 
         save_class_in_json(output_data, out_json_path)
 
         py_logger.info(f"Inference results for {file_name} saved and recorded into {out_json_path}")
+
+        out_main_result["out_file"] = out_json
+        out_main_result["chains_count"] = chains_count
+        out_main_result["markups_count"] = markups_count
         # print(f"Inference results for {file_name} saved and recorded into {out_json_path}")
         if cs is not None:
-            cs.post_progress(generate_progress_data("processed", progress, out_json_path))
+            cs.post_progress(generate_progress_data("4 of 4", progress, out_json, chains_count, markups_count))
 
-        out_json_add_path = create_add_json(input_data, preds, matched_pred_bboxes, frame_times, progress, cs)
+        out_result_data.append(out_main_result)
+        out_result_data.append(create_add_json(input_data, preds, matched_pred_bboxes, frame_times, progress, cs))
         
-        return out_json_path, out_json_add_path
+        return out_result_data
 
     except Exception as e:
         py_logger.exception(f'Exception occurred in inference.create_json_with_predictions(): {e}', exc_info=True)
@@ -284,15 +372,27 @@ def inference_mode(model, json_files: list, cs = None):
         json_files (list): List of all json files in input directory
         cs (obj): [OPTIONAL] ContainerStatus object
         
-    Returns: List of output files names
+    Returns: Dict for post_end callback
     """
+    inference_result = {}
     try:
         # for each video go inference and create output JSON
         output_files = []
+        out_chains_count = 0
+        out_markups_count = 0
         file_num = 0
         for json_file in json_files:
 
             full_json_path = os.path.join(INPUT_DATA_PATH, json_file)
+
+            #TODO: add check if file was already processed
+            json_out_files = os.listdir(OUTPUT_PATH)
+            if json_out_files:
+                json_input_name = json_file.replace("IN_", "OUT_")
+                if json_input_name in json_out_files:
+                    py_logger.info(f"Current input JSON file is already processed: {json_file}")
+                    continue
+
             py_logger.info(f"Processing current input JSON file: {full_json_path}")
             data = load_json(full_json_path)
             
@@ -319,21 +419,31 @@ def inference_mode(model, json_files: list, cs = None):
                 progress = round((file_num) / len(json_files) * 100, 2)
 
                 frame_times = get_frame_times(full_file_name)
-                out_file, out_add_file = create_json_with_predictions(input_data, frame_times, model, progress, cs)
+                if frame_times:
+                    out_file, out_add_file = create_json_with_predictions(input_data, frame_times, model, progress, cs)
             
-                output_files.append(out_file)
-                if out_add_file is not None:
-                    output_files.append(out_add_file)
+                    output_files.append(out_file["out_file"])
+                    out_chains_count = out_chains_count + out_file["chains_count"]
+                    out_markups_count = out_markups_count + out_file["markups_count"]
+                    if out_add_file:
+                        output_files.append(out_add_file["out_file"])
+                else:
+                    py_logger.error(f"Failed to get times for each video frame for {full_file_name}. Probably FFPROBE error. Skip current file, go to the next one.")
+                    continue
             else:
-                py_logger.error(f"Failed to create predictions for {full_json_path}. File can not be read.")
+                py_logger.error(f"Failed to create predictions for {full_json_path}. File can not be read. Skip current file, go to the next one.")
                 continue
             
         if (len(output_files) == 0):
             py_logger.warning("No files have been processed.")
             
-        return output_files
+        inference_result["out_files"] = output_files
+        inference_result["chains_count"] = out_chains_count
+        inference_result["markups_count"] = out_markups_count
+        return inference_result
 
     except Exception as e:
         py_logger.exception(f'Exception occurred in inference.inference_mode(): {e}', exc_info=True)
         if cs is not None:
             cs.post_error(generate_error_data(f"Failed to inference. Exception occurred in inference.inference_mode(): {e}"))
+        return inference_result

@@ -12,35 +12,38 @@ def get_frame_times(video_path: str):
     Returns:
         frame_times: Array of each frame time
     """
-
-    # "frame=pkt_dts_time" - variant 1
-    # "frame=pkt_pts_time" - var 2
-    # "frame=best_effort_timestamp_time"
-    command = [
-        "ffprobe",
-        "-show_frames",
-        "-select_streams", "v:0",
-        "-show_entries", "frame=best_effort_timestamp_time",
-        "-of", "csv",
-        video_path
-    ]
-
-    # Run cmd by subprocess
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-    if result.returncode != 0:
-        print(f"FFprobe error: {result.stderr}")
-
-    # Parse result
     frame_times = []
-    for line in result.stdout.splitlines():
-        if line.startswith("frame"):
-            time = line.split(",")[1]
-            if 'side' in line:
-                time = time.split("s")[0]
-            frame_times.append(float(time))
-    
-    return frame_times
+    try:
+        # "frame=pkt_dts_time" - variant 1
+        # "frame=pkt_pts_time" - var 2
+        # "frame=best_effort_timestamp_time"
+        command = [
+            "ffprobe",
+            "-show_frames",
+            "-select_streams", "v:0",
+            "-show_entries", "frame=best_effort_timestamp_time",
+            "-of", "csv",
+            video_path
+        ]
+
+        # Run cmd by subprocess
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        if result.returncode != 0:
+            print(f"FFprobe error: {result.stderr}")
+
+        # Parse result
+        for line in result.stdout.splitlines():
+            if line.startswith("frame"):
+                time = line.split(",")[1]
+                if 'side' in line:
+                    time = time.split("s")[0]
+                frame_times.append(float(time))
+        
+        return frame_times
+    except Exception as e:
+        py_logger.exception(f'Exception occurred in video_processor.get_frame_times(): {e}', exc_info=True)
+        return frame_times
 
 def check_video_extension(video_path: str):
     """
