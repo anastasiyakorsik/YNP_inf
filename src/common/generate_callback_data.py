@@ -6,11 +6,13 @@ def generate_error_data(msg: str, details: str = None):
         data["details"] = details
     return data 
 
-def generate_progress_data(stage: str, progress: float, output_file: str = None):
+def generate_progress_data(stage: str, progress: float, output_file: str = None, chains_count = None, markups_count = None, train_error: str = None, test_error: str = None):
     data = {
         "stage": stage,
         "progress": progress
     }
     if output_file is not None:
-        data["statistics"] = {"out_file": output_file}
+        data["statistics"] = {"out_file": output_file, "chains_count": chains_count, "markups_count": markups_count, "train_error": train_error, "test_error": test_error}
     return data
+
+

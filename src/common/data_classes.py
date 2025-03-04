@@ -41,6 +41,7 @@ class Markup:
         markup_frame (int): Video frame number
         markup_vector (list): List of input scores and keypoints scores
         markup_path (MarkupPath): Structure containing information about person bbox and skeleton in current frame
+        markup_confidence (float): Mean confidence score for all skeleton nodes
     """
     markup_id: str
     markup_parent_id: str
@@ -48,22 +49,21 @@ class Markup:
     markup_frame: int
     markup_vector = list[float]
     markup_path: MarkupPath
+    markup_confidence: float
 
 class Chain:
     """
     Describes all markups for person (equals chain) in video
 
     Attributes:
-        chain_id (str): Chain ID
         chain_name (str): Chain name
         chain_vector (list): List of input scores and mean scores of all keypoints in chain
-        chain_dataset_id (str): Chain Dataset ID
+        chain_confidence (float): Chain mean confidence score
         chain_markups (list): Structure containing information about person bboxes and skeletons in video
     """
-    chain_id: str
     chain_name: str
     chain_vector: list[float]
-    chain_dataset_id: int
+    chain_confidence: float
     chain_markups: list[Markup]
 
 class File:
@@ -71,12 +71,12 @@ class File:
     Describes file markups
 
     Attributes:
-        file_id (int): File ID
+        file_id (str): File ID
         file_name (str): File name
         file_subset (str): [OPTIONAL] File subset
         file_chains (list): Structure containing information about all people's bboxes and skeletons in video
     """
-    def __init__(self, file_id: int, file_name: str, file_subset: str = None):
+    def __init__(self, file_id: str, file_name: str, file_subset: str = None):
         self.file_id = file_id
         self.file_name = file_name
         self.file_subset = file_subset
@@ -85,7 +85,6 @@ class File:
 
 class OutputData:
     files: list[File]
-
 
 def recursive_asdict(obj):
     if isinstance(obj, list):
