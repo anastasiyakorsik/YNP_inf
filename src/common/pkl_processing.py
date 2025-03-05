@@ -37,8 +37,9 @@ def define_pkl_name(file_name: str, add: bool = False):
     chains_vectors_in = os.path.join(INPUT_PATH, chains_vectors)
     markups_vectors_in = os.path.join(INPUT_PATH, markups_vectors)
     
-    chains_vectors = 'add_' + chains_vectors
-    markups_vectors = 'add_' + markups_vectors 
+    if add:
+        chains_vectors = 'add_' + chains_vectors
+        markups_vectors = 'add_' + markups_vectors 
 
     chains_vectors_out = os.path.join(OUTPUT_PATH, chains_vectors)
     markups_vectors_out = os.path.join(OUTPUT_PATH, markups_vectors)
