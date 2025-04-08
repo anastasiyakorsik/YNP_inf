@@ -1,9 +1,5 @@
-import sys
 import argparse
-import json
 import os
-from typing import Dict, Any, List
-import uuid
 import logging
 
 import torch
@@ -14,9 +10,9 @@ from inference.inference import inference_mode
 from training.train import train_mode
 from common.json_processing import load_json
 from common.container_status import ContainerStatus as CS
-from common.generate_callback_data import generate_error_data, generate_progress_data
+from src.common.generate_callback_data import generate_error_data, generate_progress_data
 
-from workdirs import OUTPUT_PATH, INPUT_PATH, INPUT_DATA_PATH, WEIGHTS_DIR
+from workdirs import INPUT_DATA_PATH, WEIGHTS_DIR
 
 WEIGHTS_FILE = "yolo_nas_pose_l_coco_pose.pth"
 MODEL_SIZE = "l"
@@ -63,11 +59,11 @@ def main():
 
         if cs is not None:
             cs.post_start({"msg": "Start processing by YOLO-NAS Pose model"})
-            cs.post_progress(generate_progress_data("start", 0))
+            # cs.post_progress(generate_progress_data("start", 0))
 
         WEIGHTS_PATH = os.path.join(WEIGHTS_DIR, weights_file)
 
-        # Getting model from weigths
+        # Getting model from weights
         py_logger.info("Getting model:")
         model = models.get(f"yolo_nas_pose_{model_size}", num_classes = 17, checkpoint_path=WEIGHTS_PATH)
         device = 'cuda' if torch.cuda.is_available() else 'cpu'

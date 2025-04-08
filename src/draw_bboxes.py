@@ -1,10 +1,4 @@
-import sys
-import argparse
-import json
 import os
-from typing import Dict, Any, List
-import uuid
-import logging
 
 import torch
 
@@ -13,19 +7,13 @@ from super_gradients.training import models
 import cv2
 import numpy as np
 
-import time
-from tqdm import tqdm
-from typing import Type
+from inference.prediction_processor import get_prediction_per_frame
+from inference.video_processor import check_video_extension
 
-from inference.prediction_processor import get_prediction_per_frame, compare_bboxes, calculate_chain_vector
-from inference.video_processor import get_frame_times, check_video_extension
-
-from common.data_classes import OutputData, File, Chain, Markup, MarkupPath, save_class_in_json
-from common.json_processing import load_json, save_json
-from common.generate_callback_data import generate_error_data, generate_progress_data
+from common.json_processing import load_json
 from common.logger import py_logger
 
-from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH, WEIGHTS_PATH
+from workdirs import INPUT_PATH, INPUT_DATA_PATH, WEIGHTS_PATH
 
 OUT_FRAMES = "../out_mark_frames"
 
@@ -191,6 +179,7 @@ def process_bboxes(model, json_files, conf: float = 0.6):
     except Exception as e:
         py_logger.exception(f'Exception occurred in process_bboxes(): {e}', exc_info=True)
 
+'''
 def main():
     try:
         # get all JSON files for each video from input_data directory
@@ -211,4 +200,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+'''
 
