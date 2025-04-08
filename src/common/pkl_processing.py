@@ -1,21 +1,33 @@
 import os
 import pickle
 
-from common.logger import py_logger
-from workdirs import INPUT_PATH, OUTPUT_PATH
+from src.common.logger import py_logger
+from src.workdirs import INPUT_PATH, OUTPUT_PATH
+
+
+def read_pkl_or_default(file_name: str, default_value=None):
+    try:
+        return read_pkl(file_name)
+    except Exception as e:
+        py_logger.exception(f'Failed to read {file_name}. Return value is None', exc_info=True)
+        return default_value
+
+def load_pkl_data(file_path):
+    return read_pkl_or_default(file_path) if os.path.exists(file_path) else []
 
 def read_pkl(filename: str):
-    """
-    Get data from pkl file
-    """
+    if filename is None:
+        py_logger.exception(f'File name is None', exc_info=True)
+        raise Exception()
+    if not os.path.isfile(filename):
+        py_logger.exception(f'File does not exist: {filename}', exc_info=True)
+        raise Exception()
     try:
         with open(filename, "rb") as file:
-            data = pickle.load(file)
-        
-        return data
+            return pickle.load(file)
     except Exception as e:
         py_logger.exception(f'Exception occurred in pkl_processing.read_pkl(): {e}', exc_info=True)
-        return None
+        raise Exception()
 
 def create_pkl(filename: str, data):
     """
@@ -25,23 +37,9 @@ def create_pkl(filename: str, data):
         with open(filename, "wb") as file:
             pickle.dump(data, file)
     except Exception as e:
-        py_logger.exception(f'Exception occurred in pkl_processing.create_pkl(): {e}', exc_info=True)
+        py_logger.exception(f'Exception occurred in pkl_processing.create_pkl(): {e}\nFor file: {filename}', exc_info=True)
 
-def define_pkl_name(file_name: str, add: bool = False):
-    """
-     
-    """
-    chains_vectors = file_name + '_chains_vectors.pkl'
-    markups_vectors = file_name + '_markups_vectors.pkl'
 
-    chains_vectors_in = os.path.join(INPUT_PATH, chains_vectors)
-    markups_vectors_in = os.path.join(INPUT_PATH, markups_vectors)
-    
-    if add:
-        chains_vectors = 'add_' + chains_vectors
-        markups_vectors = 'add_' + markups_vectors 
+def get_chains_and_markups_pkl_file_names(file_name):
+    return file_name + '_chains_vectors.pkl', file_name + '_markups_vectors.pkl'
 
-    chains_vectors_out = os.path.join(OUTPUT_PATH, chains_vectors)
-    markups_vectors_out = os.path.join(OUTPUT_PATH, markups_vectors)
-
-    return chains_vectors, markups_vectors, chains_vectors_in, markups_vectors_in, chains_vectors_out, markups_vectors_out

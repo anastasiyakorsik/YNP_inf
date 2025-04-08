@@ -2,7 +2,7 @@ import json
 import chardet
 import os
 
-from common.logger import py_logger
+from src.common.logger import py_logger
 
 def load_json(input_arg: str) -> dict:
     """
