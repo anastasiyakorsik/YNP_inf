@@ -1,6 +1,7 @@
 import json
 import time
 import collections
+import collections.abc
 import numpy as np
 from tqdm import tqdm
 import statistics
@@ -14,7 +15,7 @@ def calc_mean(*args):
     """
     if not args:
         return None
-    if len(args) == 1 and isinstance(args[0], collections.Container):
+    if len(args) == 1 and isinstance(args[0], collections.abc.Container):
         args = args[0]
     total = sum(args)
     ave = 1.0 * total / len(args)
@@ -31,11 +32,21 @@ def calculate_chain_vector(input_chain_vector, markup_vectors):
     Returns:
         chain_vector: Resulting chain_vector field in output json
     """
-    chain_vector = []
+    if not markup_vectors:
+        py_logger.error("Empty markup_vectors")
+        return input_chain_vector
+
+    node_count = len(markup_vectors[0])
+    node_markups = {f"node_{i}": [] for i in range(node_count)}
+
     for markup_vector in markup_vectors:
-        average_markup_vector = calc_mean(*markup_vector)
-        chain_vector.append(average_markup_vector)
-    return input_chain_vector + chain_vector
+        for i, value in enumerate(markup_vector):
+            node_markups[f"node_{i}"].append(value)
+
+    averaged_chain_vector = [calc_mean(*node_markups[f"node_{i}"]) for i in range(node_count)]
+
+    return input_chain_vector + averaged_chain_vector
+
 
 def compare_bboxes(existing_bbox: dict, predicted_bbox: dict, threshold: float = 0.3) -> bool:
     """
