@@ -1,11 +1,11 @@
 import os
 import pickle
 
-from src.common.logger import py_logger
-from src.workdirs import INPUT_PATH, OUTPUT_PATH
+from common.logger import py_logger
+from workdirs import INPUT_PATH, OUTPUT_PATH
 
 
-def read_pkl_or_default(file_name: str, default_value=None):
+def read_pkl_or_default(file_name: str, default_value=[]):
     try:
         return read_pkl(file_name)
     except Exception as e:
@@ -24,7 +24,8 @@ def read_pkl(filename: str):
         raise Exception()
     try:
         with open(filename, "rb") as file:
-            return pickle.load(file)
+            pkl_data = pickle.load(file)
+            return pkl_data if pkl_data is not None else []
     except Exception as e:
         py_logger.exception(f'Exception occurred in pkl_processing.read_pkl(): {e}', exc_info=True)
         raise Exception()
