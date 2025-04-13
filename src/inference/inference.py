@@ -4,17 +4,17 @@ import statistics
 
 import cv2
 
-from prediction_processor import get_prediction_per_frame, calculate_chain_vector
-from video_processor import get_frame_times, check_video_extension
-from bbox_processing import filter_bboxes_with_content, OUT_FRAMES
+from inference.prediction_processor import get_prediction_per_frame, calculate_chain_vector
+from inference.video_processor import get_frame_times, check_video_extension
+from inference.bbox_processing import filter_bboxes_with_content, OUT_FRAMES
 
-from src.common.data_classes import OutputData, File, Chain, Markup, MarkupPath, save_class_in_json
-from src.common.json_processing import load_json, save_json
-from src.common.pkl_processing import read_pkl_or_default, create_pkl, get_chains_and_markups_pkl_file_names
-from src.common.generate_callback_data import generate_error_data, generate_progress_data
-from src.common.logger import py_logger
+from common.data_classes import OutputData, File, Chain, Markup, MarkupPath, save_class_in_json
+from common.json_processing import load_json, save_json
+from common.pkl_processing import read_pkl_or_default, create_pkl, get_chains_and_markups_pkl_file_names
+from common.generate_callback_data import generate_error_data, generate_progress_data
+from common.logger import py_logger
 
-from src.workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
+from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
 
 '''
 def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, frame_times: list, progress: float, cs = None):
@@ -382,8 +382,8 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
         pkl_chains_vectors, pkl_markups_vectors = get_chains_and_markups_pkl_file_names(video_file_name)
 
         input_pkl_chains_vectors, input_pkl_markups_vectors = read_pkl_or_default(
-            str(os.path.join(INPUT_PATH, pkl_chains_vectors))), read_pkl_or_default(
-            str(os.path.join(INPUT_PATH, pkl_markups_vectors)))
+            str(os.path.join(INPUT_DATA_PATH, pkl_chains_vectors))), read_pkl_or_default(
+            str(os.path.join(INPUT_DATA_PATH, pkl_markups_vectors)))
 
         # Inference for each frame of video
         if container_status is not None:
@@ -445,7 +445,7 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
             container_status.post_progress(
                 generate_progress_data("4 of 4", progress, out_json, chains_count, markups_count))
 
-        # out_result_data.append(out_main_result)
+        out_result_data.append(out_main_result)
         # out_result_data.append(
         #   create_add_json(input_data, preds, matched_pred_bboxes, frame_times, progress, container_status))
 
