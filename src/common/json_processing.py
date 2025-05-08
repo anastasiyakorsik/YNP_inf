@@ -2,7 +2,16 @@ import json
 import chardet
 import os
 
-from src.common.logger import py_logger
+from common.logger import py_logger
+
+def collect_json_files(input_files: list):
+    input_json_files = []
+    for input_file in input_files:
+        if os.path.splitext(input_file)[1] == ".json":
+            input_json_files.append(input_file)
+
+    return input_json_files
+
 
 def load_json(input_arg: str) -> dict:
     """

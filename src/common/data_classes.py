@@ -76,15 +76,18 @@ class File:
         file_subset (str): [OPTIONAL] File subset
         file_chains (list): Structure containing information about all people's bboxes and skeletons in video
     """
-    def __init__(self, file_id: str, file_name: str, file_subset: str = None):
+    def __init__(self, file_id: str, file_name: str, file_chains: list[Chain], file_subset: str = None):
         self.file_id = file_id
         self.file_name = file_name
         self.file_subset = file_subset
-        
-    file_chains: list[Chain] 
+        self.file_chains = file_chains
+
 
 class OutputData:
     files: list[File]
+
+    def __init__(self):
+        self.files = []
 
 def recursive_asdict(obj):
     if isinstance(obj, list):

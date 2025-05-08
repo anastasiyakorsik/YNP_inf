@@ -9,7 +9,7 @@ def read_pkl_or_default(file_name: str, default_value=[]):
     try:
         return read_pkl(file_name)
     except Exception as e:
-        py_logger.exception(f'Failed to read {file_name}. Return value is None', exc_info=True)
+        py_logger.exception(f'Failed to read {file_name}. Return value is []', exc_info=True)
         return default_value
 
 def load_pkl_data(file_path):
@@ -43,4 +43,24 @@ def create_pkl(filename: str, data):
 
 def get_chains_and_markups_pkl_file_names(file_name):
     return file_name + '_chains_vectors.pkl', file_name + '_markups_vectors.pkl'
+
+def get_input_pkl_vector_elements_length(pkl_vector_name, pkl_vector_value):
+    py_logger.info("Check input pkl vectors lengths")
+    pkl_vector_value.tolist()
+    if len(pkl_vector_value) > 0:
+        py_logger.info(f"Length of pkl vector ({pkl_vector_name}) is {len(pkl_vector_value)}")
+        for i in range(len(pkl_vector_value)):
+            py_logger.warning(f"Length of {i} element of pkl vector ({pkl_vector_name}) is {len(pkl_vector_value[i])}; Should be 1000.")
+    else:
+        py_logger.info(f"Length of pkl vector ({pkl_vector_name}) is 0")
+
+def get_output_pkl_vector_elements_length(pkl_vector_name, pkl_vector_value):
+    py_logger.info("Check output pkl vectors lengths")
+    if len(pkl_vector_value) > 0:
+        py_logger.info(f"Length of pkl vector ({pkl_vector_name}) is {len(pkl_vector_value)}")
+        for i in range(len(pkl_vector_value)):
+            if not (len(pkl_vector_value[i])==1000 or len(pkl_vector_value[i])==1017 or len(pkl_vector_value[i])==17):
+                py_logger.warning(f"Length of {i} element of pkl vector ({pkl_vector_name}) is {len(pkl_vector_value[i])}; Should be 1000 or 1017 or 17.")
+    else:
+        py_logger.info(f"Length of pkl vector ({pkl_vector_name}) is 0")
 

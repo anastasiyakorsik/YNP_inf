@@ -87,6 +87,7 @@ def convert_keypoints(markup_path):
             #point = node[key]
             x, y, score = value["x"], value["y"], value["score"]
             visibility = 2 if score > 0.5 else 1  # Visible or labeled but not visible
+            #visibility = 1
             keypoints.extend([x, y, visibility])
             num_keypoints += 1
         return keypoints, num_keypoints
@@ -136,7 +137,7 @@ def convert_to_coco(input_json, frames_folder, extracted_frames, full_tmp_frames
 
             # Process annotations for this frame
             for video_data in input_json["files"]:
-                video_name_from_json = os.path.splitext(os.path.basename(video_data["file_name"]))[0]
+                video_name_from_json = os.path.basename(video_data["file_name"])
                 if video_name_from_json == video_name:
                     for chain in video_data["file_chains"]:
                         for markup in chain["chain_markups"]:
@@ -152,9 +153,9 @@ def convert_to_coco(input_json, frames_folder, extracted_frames, full_tmp_frames
                                     "bbox": bbox,
                                     "keypoints": keypoints,
                                     "num_keypoints": num_keypoints,
-                                    "iscrowd": 0
+                                    "iscrowd": 1
                                 })
-        coco_data_path = os.path.join(os.path.dirname(full_tmp_frames_path), coco_ann_file)
+        coco_data_path = os.path.join(full_tmp_frames_path, coco_ann_file)
         if coco_data:
             save_json(coco_data, coco_data_path)
         else:
@@ -191,3 +192,4 @@ if __name__ == "__main__":
     output_frames_path = "output_frames"  # Folder containing extracted frames
     output_coco_path = "coco_annotations.json"
     main(input_json_path, output_frames_path, output_coco_path)
+

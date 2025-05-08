@@ -8,9 +8,9 @@ from super_gradients.training import models
 
 from inference.inference import inference_mode
 from training.train import train_mode
-from common.json_processing import load_json
+from common.json_processing import load_json, collect_json_files
 from common.container_status import ContainerStatus as CS
-from src.common.generate_callback_data import generate_error_data, generate_progress_data
+from common.generate_callback_data import generate_error_data, generate_progress_data
 
 from workdirs import INPUT_DATA_PATH, WEIGHTS_DIR
 
@@ -35,6 +35,7 @@ def parse_arguments():
     parser.add_argument('--work_format_training', action='store_true', default=False, help='Program mode')
     return parser.parse_args()
 
+
 def main():
     try:
         args = parse_arguments()
@@ -48,8 +49,8 @@ def main():
         epochs_num = input_data.get("epochs_num", EPOCHS_NUM)
 
             
-        # get all JSON files for each video from input_data directory
-        json_files = os.listdir(INPUT_DATA_PATH)
+        # get all JSON and pkl files for each video from input_data directory
+        input_json_files = collect_json_files(os.listdir(INPUT_DATA_PATH))
 
         # Callback init
         cs = None
@@ -73,7 +74,7 @@ def main():
 
         if training_mode:
             py_logger.info("Start training")
-            train_mode(model, json_files, WEIGHTS_PATH, cs)
+            train_mode(model, input_json_files, WEIGHTS_PATH, cs)
             reload_model = True
         
         if reload_model:
@@ -84,7 +85,7 @@ def main():
 
         # for each video go inference and create output json with new data
         py_logger.info("Start inference")
-        inference_result = inference_mode(model, json_files, cs)
+        inference_result = inference_mode(model, input_json_files, cs)
         
         if inference_result:
             py_logger.info(f"Inference result: {inference_result}")
