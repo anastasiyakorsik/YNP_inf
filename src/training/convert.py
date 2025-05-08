@@ -87,7 +87,6 @@ def convert_keypoints(markup_path):
             #point = node[key]
             x, y, score = value["x"], value["y"], value["score"]
             visibility = 2 if score > 0.5 else 1  # Visible or labeled but not visible
-            #visibility = 1
             keypoints.extend([x, y, visibility])
             num_keypoints += 1
         return keypoints, num_keypoints
@@ -106,7 +105,7 @@ def extract_image_dimensions(image_path):
         py_logger.exception(f"Exception occured in training.convert.extract_image_dimensions() {err=}, {type(err)=}", exc_info=True)
 
 
-def convert_to_coco(input_json, frames_folder, extracted_frames, full_tmp_frames_path, coco_ann_file):
+def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann_file):
     """
     Convert YOLO-NAS-Pose annotations to COCO format.
     """
@@ -124,7 +123,6 @@ def convert_to_coco(input_json, frames_folder, extracted_frames, full_tmp_frames
             video_name, frame_number = frame_file.rsplit('_', 1)
             frame_id = int(frame_number.split('.')[0])
             image_id = generate_unique_id()
-            frame_path = os.path.join(frames_folder, frame_file)
             width, height = extract_image_dimensions(frame_path)
 
             # Add image info
@@ -137,7 +135,7 @@ def convert_to_coco(input_json, frames_folder, extracted_frames, full_tmp_frames
 
             # Process annotations for this frame
             for video_data in input_json["files"]:
-                video_name_from_json = os.path.basename(video_data["file_name"])
+                video_name_from_json = os.path.splitext(os.path.basename(video_data["file_name"]))[0]
                 if video_name_from_json == video_name:
                     for chain in video_data["file_chains"]:
                         for markup in chain["chain_markups"]:
@@ -153,7 +151,8 @@ def convert_to_coco(input_json, frames_folder, extracted_frames, full_tmp_frames
                                     "bbox": bbox,
                                     "keypoints": keypoints,
                                     "num_keypoints": num_keypoints,
-                                    "iscrowd": 1
+                                    "iscrowd": 0,
+                                    "segmentation": []
                                 })
         coco_data_path = os.path.join(full_tmp_frames_path, coco_ann_file)
         if coco_data:
@@ -192,4 +191,3 @@ if __name__ == "__main__":
     output_frames_path = "output_frames"  # Folder containing extracted frames
     output_coco_path = "coco_annotations.json"
     main(input_json_path, output_frames_path, output_coco_path)
-

@@ -20,7 +20,7 @@ from common.logger import py_logger
 from common.data_classes import OutputData, File, Chain, Markup, MarkupPath, save_class_in_json
 from common.json_processing import load_json, save_json
 from common.generate_callback_data import generate_error_data, generate_progress_data
-
+from sklearn.model_selection import train_test_split
 from inference.video_processor import get_frame_times, check_video_extension
 
 
@@ -36,8 +36,7 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
     try: 
         py_logger.info(f"Extracting has started")
         extract_frames_folder = os.path.join(output_folder, "extracted_frames") 
-        if not os.path.exists(extract_frames_folder):
-            os.makedirs(extract_frames_folder)
+        os.makedirs(extract_frames_folder, exist_ok=True)
 
         frame_count = 0
         for video_path in video_paths:
@@ -70,45 +69,8 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
 
         return extract_frames_folder
     
-    except Exception as e:
-        py_logger.exception(f"Exception occured in training.train.extract_frames_from_videos() {e}, {type(e)}", exc_info=True)
-
-        # for video_id, video_ann in enumerate(input_data['files']):
-        #     video_path = video_paths[video_id]
-        #     chains = video_ann["file_chains"]
-
-        #     if not os.path.exists(video_path):
-        #         py_logger.error(f"Video file not found: {video_path}")
-        #         continue
-            
-        #     cap = cv2.VideoCapture(video_path)
-        #     if not cap.isOpened():
-        #         py_logger.error(f"Failed to open video: {video_path}")
-        #         continue
-
-        #     for chain in chains:
-        #         for markup in chain["chain_markups"]:
-        #             frame_number = markup["markup_frame"]
-
-        #             # Set the video frame position
-        #             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-
-        #             # Read the frame
-        #             ret, frame = cap.read()
-        #             if not ret:
-        #                 py_logger.error(f"Failed to read frame {frame_number} in {video_path}")
-        #                 continue
-
-        #             # Save the frame to the output directory
-        #             video_name = os.path.splitext(os.path.basename(video_path))[0]
-        #             output_path = os.path.join(extract_frames_folder, f"{video_name}_{frame_number}.jpg")
-        #             cv2.imwrite(output_path, frame)
-        #             py_logger.info(f"Saved: {output_path}")
-
-            #  py_logger.info(f"{video_path} extracted")
-
-        # py_logger.info(f"Extracting completed")
-
+    except Exception as err:
+        py_logger.exception(f"Exception occured in training.train.extract_frames_from_videos() {err=}, {type(err)=}", exc_info=True)
 
 def train_val_split(images_path: str, full_tmp_training_path: str, coco_data: dict, split_ratio: float = 0.2):
     """
@@ -121,52 +83,101 @@ def train_val_split(images_path: str, full_tmp_training_path: str, coco_data: di
     Returns:
         tuple: Paths to training and validation folders, and corresponding train/val frame times.
     """
-    try:
+
+    images = coco_data['images']
+    # random.seed(images)
+    random.shuffle(images)
+
+    split_index = int(len(images) * split_ratio)
+    train_images = images[split_index:]
+    val_images = images[:split_index]
+
+    train_annotations = {"info": coco_data['info'], "images": train_images, "annotations": [], "categories": coco_data['categories']}
+    val_annotations = {"info": coco_data['info'], "images": val_images, "annotations": [], "categories": coco_data['categories']}
+
+    # Create separate annotation files
+    train_img_ids = {img['id'] for img in train_images}
+    for ann in coco_data['annotations']:
+        if ann['image_id'] in train_img_ids:
+            train_annotations['annotations'].append(ann)
+        else:
+            val_annotations['annotations'].append(ann)
+    
+    # Create train and validation folders
+    train_folder = os.path.join(full_tmp_training_path, "train")
+    val_folder = os.path.join(full_tmp_training_path, "val")
+    os.makedirs(train_folder, exist_ok=True)
+    os.makedirs(val_folder, exist_ok=True)
+
+    # save train and validation annotations
+    save_json(train_annotations, os.path.join(full_tmp_training_path, "train_coco_ann.json"))
+    save_json(val_annotations, os.path.join(full_tmp_training_path, "val_coco_ann.json"))
+
+    for img in train_images:
+        shutil.copyfile(os.path.join(images_path, img['file_name']), os.path.join(train_folder, img['file_name']))
+    for img in val_images:
+        shutil.copyfile(os.path.join(images_path, img['file_name']), os.path.join(val_folder, img['file_name']))
+
+    py_logger.info(f"INFO - Split data: {len(train_images)} train frames, {len(val_images)} val frames")
 
 
-        images = coco_data['images']
-        # random.seed(images)
-        random.shuffle(images)
+    return os.path.relpath(train_folder, full_tmp_training_path), os.path.relpath(val_folder, full_tmp_training_path), "train_coco_ann.json", "val_coco_ann.json"
 
-        split_index = int(len(images) * split_ratio)
-        train_images = images[split_index:]
-        val_images = images[:split_index]
+def split_pose_dataset(coco_data: dict, train_path: str, val_fraction: float):
+    """
+    Split the pose dataset into training and validation sets.
 
-        train_annotations = {"info": coco_data['info'], "images": train_images, "annotations": [], "categories": coco_data['categories']}
-        val_annotations = {"info": coco_data['info'], "images": val_images, "annotations": [], "categories": coco_data['categories']}
+    :param coco_data: all JSON annotations already in COCO pose format.
+    :
+    :param annotation_file: Path to the JSON file containing all annotations.
+    :param train_path: Path where the all training files located.
+    :param val_annotation_file: Path where the annotations for the validation set will be saved.
+    :param val_fraction: Fraction of the total dataset to be used for validation.
+    """
+    # Open and load the entire annotations JSON file
+    annotation = coco_data
 
-        # Create separate annotation files
-        train_img_ids = {img['id'] for img in train_images}
-        for ann in coco_data['annotations']:
-            if ann['image_id'] in train_img_ids:
-                train_annotations['annotations'].append(ann)
-            else:
-                val_annotations['annotations'].append(ann)
-        
-        # Create train and validation folders
-        train_folder = os.path.join(full_tmp_training_path, "train")
-        val_folder = os.path.join(full_tmp_training_path, "val")
-        os.makedirs(train_folder, exist_ok=True)
-        os.makedirs(val_folder, exist_ok=True)
+    train_annotation_path = os.path.join(train_path, "train_anns.json")
+    val_annotation_path = os.path.join(train_path, "val_anns.json")
 
-        # save train and validation annotations
-        save_json(train_annotations, os.path.join(full_tmp_training_path, "train_coco_ann.json"))
-        save_json(val_annotations, os.path.join(full_tmp_training_path, "val_coco_ann.json"))
+    # Extract image IDs from the annotations
+    image_ids = [ann["id"] for ann in annotation["images"]]
 
-        for img in train_images:
-            shutil.copyfile(os.path.join(images_path, img['file_name']), os.path.join(train_folder, img['file_name']))
-        for img in val_images:
-            shutil.copyfile(os.path.join(images_path, img['file_name']), os.path.join(val_folder, img['file_name']))
+    # Split the dataset into training and validation sets
+    train_ids, val_ids = train_test_split(image_ids, test_size=val_fraction, random_state=42)
 
-        py_logger.info(f"INFO - Split data: {len(train_images)} train frames, {len(val_images)} val frames")
+    # Prepare annotations dictionary for training set
 
-        #return train_folder, val_folder, os.path.join(full_tmp_training_path, "train_coco_ann.json"), os.path.join(full_tmp_training_path, "val_coco_ann.json")
+    train_annotations = {
+        "info": annotation["info"],
+        "categories": annotation["categories"],
+        "images": [image for image in annotation["images"] if image["id"] in train_ids],
+        "annotations": [ann for ann in annotation["annotations"] if ann["image_id"] in train_ids],
+    }
 
-        return os.path.relpath(train_folder, full_tmp_training_path), os.path.relpath(val_folder, full_tmp_training_path), "train_coco_ann.json", "val_coco_ann.json"
+    # Prepare annotations dictionary for validation set
+    val_annotations = {
+        "info": annotation["info"],
+        "categories": annotation["categories"],
+        "images": [image for image in annotation["images"] if image["id"] in val_ids],
+        "annotations": [ann for ann in annotation["annotations"] if ann["image_id"] in val_ids],
+    }
 
-    except Exception as e:
-        py_logger.exception(f"Exception occured in training.train.train_val_split() {e}, {type(e)}", exc_info=True)
+    # Save the annotations for the training set to a JSON file
+    with open(train_annotation_path, "w") as f:
+        json.dump(train_annotations, f)
+        py_logger.info(f"Train annotations saved to {train_annotation_path}")
+        py_logger.info(f"Train images: {len(train_ids)}")
+        py_logger.info(f"Train annotations: {len(train_annotations["annotations"])}")
 
+    # Save the annotations for the validation set to a JSON file
+    with open(val_annotation_path, "w") as f:
+        json.dump(val_annotations, f)
+        py_logger.info(f"Val annotations saved to {val_annotation_path}")
+        py_logger.info(f"Val images: {len(val_ids)}")
+        py_logger.info(f"Val annotations: {len(val_annotations["annotations"])}")
+
+    return train_annotation_path, val_annotation_path
 
 
 def training(model, config):
@@ -175,8 +186,7 @@ def training(model, config):
     """
     try:
         ckpt_path = os.path.join(config["train_dir"], "checkpoints") 
-        if not os.path.exists(ckpt_path):
-            os.makedirs(ckpt_path)
+        os.makedirs(ckpt_path, exist_ok=True)
 
         py_logger.info(f"INFO - Training chekpoint path created")
 
@@ -235,7 +245,7 @@ def training(model, config):
         py_logger.info(f"INFO - Weights are updated")
 
     except Exception as e:
-        py_logger.exception(f"Exception occured in training.train.training(): {e}, {type(e)}", exc_info=True)
+        py_logger.error(f"ERROR - Training failed: {e}")
 
 
 
@@ -250,8 +260,7 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
     """
     try:
         full_tmp_training_path = os.path.join(OUTPUT_PATH, "training") 
-        if not os.path.exists(full_tmp_training_path):
-            os.makedirs(full_tmp_training_path)
+        os.makedirs(full_tmp_training_path, exist_ok=True)
 
         all_videos_names = []
         all_json_data = {"files": []}
@@ -285,25 +294,33 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
             all_videos_names.append(full_file_name)
 
         # Extract frames from all videos
-        save_json(all_json_data, os.path.join(full_tmp_training_path, "all_json_data.json"))
+        all_json_data_file = os.path.join(full_tmp_training_path, "all_json_data.json")
+        save_json(all_json_data, all_json_data_file)
         frames_folder = extract_frames_from_videos(all_videos_names, full_tmp_training_path)
 
         # Convert data to COCO format        
         coco_ann_file = "coco_ann.json"
-        coco_data_path, coco_data = convert_to_coco(all_json_data, frames_folder, os.listdir(frames_folder), full_tmp_training_path, coco_ann_file)
+
+        extracted_frames = []
+        for file in os.listdir(frames_folder):
+            extracted_frames.append(os.path.join(frames_folder, file))
+
+        coco_data_path, coco_data = convert_to_coco(all_json_data, extracted_frames, full_tmp_training_path, coco_ann_file)
 
         # Split frames into train and validation sets
-        train_folder, val_folder, train_coco_ann, val_coco_ann = train_val_split(frames_folder, full_tmp_training_path, coco_data)
+        # train_folder, val_folder, train_coco_ann, val_coco_ann = train_val_split(frames_folder, full_tmp_training_path, coco_data)
 
+        # split_pose_dataset(coco_data_path, "/kaggle/working/train_anns.json", "/kaggle/working/val_anns.json", 0.2)
+        train_coco_ann, val_coco_ann = split_pose_dataset(coco_data, full_tmp_training_path, 0.2)
 
         # Configure training parameters
         train_config = {
             "weights_path": WEIGHTS_PATH,
             "train_dir": full_tmp_training_path,
-            "train_imgs_dir": train_folder,
+            "train_imgs_dir": extracted_frames,
             "train_anns": train_coco_ann,
             "val_dir": full_tmp_training_path,
-            "val_imgs_dir": val_folder,
+            "val_imgs_dir": extracted_frames,
             "val_anns": val_coco_ann,
             "NUM_EPOCHS": 5,  # Default; can be modified as needed
         }
@@ -311,5 +328,5 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
         # Start training
         training(model, train_config)
 
-    except Exception as e:
-        py_logger.exception(f"Exception occured in training.train.train_mode() {e}, {type(e)}", exc_info=True)
+    except Exception as err:
+        py_logger.exception(f"Exception occured in training.train.train_mode() {err=}, {type(err)=}", exc_info=True)
