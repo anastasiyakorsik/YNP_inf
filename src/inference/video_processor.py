@@ -2,6 +2,8 @@ import time
 import os
 import subprocess
 
+from src.common.logger import py_logger
+
 def get_frame_times(video_path: str):
     """
     Gets time for each video frame
@@ -27,7 +29,7 @@ def get_frame_times(video_path: str):
         ]
 
         # Run cmd by subprocess
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
 
         if result.returncode != 0:
             print(f"FFprobe error: {result.stderr}")
