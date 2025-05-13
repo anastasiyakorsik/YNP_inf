@@ -142,7 +142,7 @@ def define_vectors_value_and_index(entity: str, input_vector_index_or_value, inp
     '''
     try:
         if input_vector_index_or_value is not None:
-            if isinstance(input_vector_index_or_value, int) or input_vector_index_or_value == 0:
+            if isinstance(input_vector_index_or_value, int):
                 if len(input_pkl_vectors) > 0:
                     output_vector_index = input_vector_index_or_value
                     input_pkl_vector_element = input_pkl_vectors[output_vector_index]
@@ -269,9 +269,15 @@ def collect_file_chains(input_data: dict, model_predictions_per_video: list, vid
                 )
 
                 if i is not None:
+                    '''
                     mean_conf_score, out_markup, output_markup_vector_value = create_out_markup_if_bboxes_matched(
                         predicted_nodes[i], predicted_scores[i], predicted_edges, input_markup,
                         input_pkl_markups_vectors, len(output_pkl_markups_vectors), int(markup_frame), frame_times)
+                    '''
+
+                    mean_conf_score, out_markup, output_markup_vector_value = create_out_markup_if_bboxes_matched(
+                        predicted_nodes[i], predicted_scores[i], predicted_edges, input_markup,
+                        [], len(output_pkl_markups_vectors), int(markup_frame), frame_times)
 
                     matched_chain_bboxes += 1
                     matched_predicted_bboxes.append(predicted_bboxes[i])
@@ -291,8 +297,14 @@ def collect_file_chains(input_data: dict, model_predictions_per_video: list, vid
                 # py_logger.info(f"Chain vector index: {input_chain_index}")
                 # py_logger.info(f"Element {input_chain_index} of input_pkl_chains_vectors is: {input_pkl_chains_vectors[input_chain_index]}")
 
+                '''
                 output_chain_vector_index, output_chain_vector_value, _ = define_vectors_value_and_index(
                     'chain',  input_chain_index, input_pkl_chains_vectors, len(output_pkl_chains_vectors),
+                    predicted_markup_vectors)
+                '''
+
+                output_chain_vector_index, output_chain_vector_value, _ = define_vectors_value_and_index(
+                    'chain', input_chain_index, [], len(output_pkl_chains_vectors),
                     predicted_markup_vectors)
 
                 out_chain = Chain()
@@ -319,7 +331,7 @@ def collect_file_chains(input_data: dict, model_predictions_per_video: list, vid
     return chains_count, markups_count, file_chains, matched_predicted_bboxes, output_pkl_markups_vectors, output_pkl_chains_vectors
 
 
-def process_input_pkl_vectors(video_file_name):
+def get_input_pkl_vectors_names(video_file_name):
     # Create .pkl file name for chains and markups
     pkl_chains_vectors_file_name, pkl_markups_vectors_file_name = get_chains_and_markups_pkl_file_names(video_file_name)
 
@@ -356,7 +368,9 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
         video_file_name = os.path.basename(input_data['file_name'])
         full_video_file_name = os.path.join(INPUT_PATH, video_file_name)
 
-        pkl_chains_vectors_file_name, pkl_markups_vectors_file_name, input_pkl_chains_vectors, input_pkl_markups_vectors = process_input_pkl_vectors(video_file_name)
+        # pkl_chains_vectors_file_name, pkl_markups_vectors_file_name, input_pkl_chains_vectors, input_pkl_markups_vectors = get_input_pkl_vectors_names(video_file_name)
+        pkl_chains_vectors_file_name, pkl_markups_vectors_file_name = get_chains_and_markups_pkl_file_names(
+            video_file_name)
 
         # Inference for each frame of video
         if container_status is not None:
@@ -377,14 +391,20 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
         if not os.path.exists(OUT_FRAMES):
             os.makedirs(OUT_FRAMES)
 
+        '''
         if not isinstance(input_pkl_markups_vectors, list):
             input_pkl_markups_vectors = input_pkl_markups_vectors.tolist()
         if not isinstance(input_pkl_chains_vectors, list):
             input_pkl_chains_vectors = input_pkl_chains_vectors.tolist()
-
+            
         chains_count, markups_count, file_chains, matched_predicted_bboxes, output_pkl_markups_vectors, output_pkl_chains_vectors = collect_file_chains(
             input_data, model_predictions, cap, str(full_video_file_name), input_pkl_markups_vectors,
             input_pkl_chains_vectors, frame_times)
+        '''
+
+        chains_count, markups_count, file_chains, matched_predicted_bboxes, output_pkl_markups_vectors, output_pkl_chains_vectors = collect_file_chains(
+            input_data, model_predictions, cap, str(full_video_file_name), [],
+            [], frame_times)
 
         # get_output_pkl_vector_elements_length('chains', output_pkl_chains_vectors)
         # get_output_pkl_vector_elements_length('markups', output_pkl_markups_vectors)
