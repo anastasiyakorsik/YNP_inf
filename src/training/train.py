@@ -23,16 +23,19 @@ from sklearn.model_selection import train_test_split
 from inference.video_processor import get_frame_times, check_video_extension
 
 def check_input_file_for_skeleton_markup_containing(input_json_data):
-    if input_json_data:
-        input_data = input_json_data['files'][0]
-        skeleton_nodes = input_data['file_chains'][0]['chain_markups'][0]['markup_path'].get('nodes', [])
-        if len(skeleton_nodes) > 0:
-            check_file_result = True
+    try:
+        if input_json_data:
+            input_data = input_json_data['files'][0]
+            skeleton_nodes = input_data['file_chains'][0]['chain_markups'][0]['markup_path'].get('nodes', [])
+            if len(skeleton_nodes) > 0:
+                check_file_result = True
+            else:
+                check_file_result = False
         else:
             check_file_result = False
-    else:
-        check_file_result = False
-    return check_file_result
+        return check_file_result
+    except Exception as ex:
+        return False
 
 def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None):
     """
