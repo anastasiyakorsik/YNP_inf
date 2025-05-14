@@ -76,9 +76,9 @@ def main():
         if training_mode:
             result_of_input_files_check = check_input_files_for_training_mode(input_json_files)
             if not result_of_input_files_check:
-                py_logger.error(f"Incorrect input files or input files do not exist")
+                py_logger.error(f"Incorrect input files for training. Skip training. Go to inference")
                 if cs is not None:
-                    cs.post_error(generate_error_data(f"No inference result"))
+                    cs.post_error(generate_error_data(f"Incorrect input files for training. Skip training. Go to inference"))
             else:
                 py_logger.info("Start training")
                 train_mode(model, input_json_files, WEIGHTS_PATH, cs)
