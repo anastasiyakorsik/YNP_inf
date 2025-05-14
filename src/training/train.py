@@ -22,6 +22,17 @@ from common.generate_callback_data import generate_error_data, generate_progress
 from sklearn.model_selection import train_test_split
 from inference.video_processor import get_frame_times, check_video_extension
 
+def check_input_file_for_skeleton_markup_containing(input_json_data):
+    if input_json_data:
+        input_data = input_json_data['files'][0]
+        skeleton_nodes = input_data['file_chains'][0]['chain_markups'][0]['markup_path'].get('nodes', [])
+        if len(skeleton_nodes) > 0:
+            check_file_result = True
+        else:
+            check_file_result = False
+    else:
+        check_file_result = False
+    return check_file_result
 
 def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None):
     """
@@ -287,6 +298,13 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
                 py_logger.error(f"Failed to train on {file_name}. File does not exist.")
                 if cs is not None:
                     cs.post_error(generate_error_data(f"Failed to train on {file_name}. File does not exist.", file_name))
+                continue  # Skip if file does not exist
+
+            if not check_input_file_for_skeleton_markup_containing(data):
+                py_logger.error(f"Failed to train on {file_name}. File does not contain skeleton markup.")
+                if cs is not None:
+                    cs.post_error(
+                        generate_error_data(f"Failed to train on {file_name}. File does not contain skeleton markup.", file_name))
                 continue  # Skip if file does not exist
                 
             if not check_video_extension(file_name):
