@@ -9,7 +9,6 @@ from super_gradients.training import models
 from inference.inference import inference_mode
 from training.train import train_mode
 from common.json_processing import load_json, collect_json_files
-from common.check_input import check_input_files_for_training_mode
 from common.container_status import ContainerStatus as CS
 from common.generate_callback_data import generate_error_data, generate_progress_data
 
@@ -74,15 +73,14 @@ def main():
         reload_model = False
 
         if training_mode:
-            result_of_input_files_check = check_input_files_for_training_mode(input_json_files)
-            if not result_of_input_files_check:
-                py_logger.error(f"Incorrect input files for training. Skip training. Go to inference")
-                if cs is not None:
-                    cs.post_error(generate_error_data(f"Incorrect input files for training. Skip training. Go to inference"))
-            else:
+            if input_json_files:
                 py_logger.info("Start training")
                 train_mode(model, input_json_files, WEIGHTS_PATH, cs)
                 reload_model = True
+            else:
+                py_logger.error(f"No input files")
+                if cs is not None:
+                    cs.post_error(generate_error_data(f"No input files"))
         
         if reload_model:
             py_logger.info("Reload model from updated weights:")
