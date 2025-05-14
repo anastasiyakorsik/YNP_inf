@@ -6,18 +6,17 @@ import random
 
 from super_gradients.training import Trainer
 from super_gradients.training.datasets.pose_estimation_datasets import YoloNASPoseCollateFN
+from super_gradients.training.datasets.pose_estimation_datasets import COCOPoseEstimationDataset
 from torch.utils.data import DataLoader
 
 from training.train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
 from training.keypoint_transforms import define_set_transformations
-from training.pose_estimation_dataset import PoseEstimationDataset
 from training.convert import convert_to_coco
 
 import cv2
 from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
 
 from common.logger import py_logger
-from common.data_classes import OutputData, File, Chain, Markup, MarkupPath, save_class_in_json
 from common.json_processing import load_json, save_json
 from common.generate_callback_data import generate_error_data, generate_progress_data
 from sklearn.model_selection import train_test_split
@@ -85,7 +84,6 @@ def train_val_split(images_path: str, full_tmp_training_path: str, coco_data: di
     """
 
     images = coco_data['images']
-    # random.seed(images)
     random.shuffle(images)
 
     split_index = int(len(images) * split_ratio)
@@ -120,7 +118,6 @@ def train_val_split(images_path: str, full_tmp_training_path: str, coco_data: di
 
     py_logger.info(f"INFO - Split data: {len(train_images)} train frames, {len(val_images)} val frames")
 
-
     return os.path.relpath(train_folder, full_tmp_training_path), os.path.relpath(val_folder, full_tmp_training_path), "train_coco_ann.json", "val_coco_ann.json"
 
 def split_pose_dataset(coco_data: dict, train_path: str, val_fraction: float):
@@ -128,7 +125,7 @@ def split_pose_dataset(coco_data: dict, train_path: str, val_fraction: float):
     Split the pose dataset into training and validation sets.
 
     :param coco_data: all JSON annotations already in COCO pose format.
-    :
+    : 
     :param annotation_file: Path to the JSON file containing all annotations.
     :param train_path: Path where the all training files located.
     :param val_annotation_file: Path where the annotations for the validation set will be saved.
@@ -138,16 +135,20 @@ def split_pose_dataset(coco_data: dict, train_path: str, val_fraction: float):
     annotation = coco_data
 
     train_annotation_path = os.path.join(train_path, "train_anns.json")
+    py_logger.info(f"Train anns file path is: {train_annotation_path}")
     val_annotation_path = os.path.join(train_path, "val_anns.json")
+    py_logger.info(f"Val anns file path is: {val_annotation_path}")
 
     # Extract image IDs from the annotations
     image_ids = [ann["id"] for ann in annotation["images"]]
 
+
+
     # Split the dataset into training and validation sets
-    train_ids, val_ids = train_test_split(image_ids, test_size=val_fraction, random_state=42)
+    train_ids, val_ids = train_test_split(image_ids, test_size=val_fraction)
 
     # Prepare annotations dictionary for training set
-
+    
     train_annotations = {
         "info": annotation["info"],
         "categories": annotation["categories"],
@@ -168,14 +169,16 @@ def split_pose_dataset(coco_data: dict, train_path: str, val_fraction: float):
         json.dump(train_annotations, f)
         py_logger.info(f"Train annotations saved to {train_annotation_path}")
         py_logger.info(f"Train images: {len(train_ids)}")
-        py_logger.info(f"Train annotations: {len(train_annotations["annotations"])}")
+        py_logger.info(f"Train annotations len: {len(train_annotations['annotations'])}")
+        # py_logger.info(f"Train annotations data: {train_annotations}")
 
     # Save the annotations for the validation set to a JSON file
     with open(val_annotation_path, "w") as f:
         json.dump(val_annotations, f)
         py_logger.info(f"Val annotations saved to {val_annotation_path}")
         py_logger.info(f"Val images: {len(val_ids)}")
-        py_logger.info(f"Val annotations: {len(val_annotations["annotations"])}")
+        py_logger.info(f"Val annotations len: {len(val_annotations['annotations'])}")
+        # py_logger.info(f"Val annotations data: {val_annotations}")
 
     return train_annotation_path, val_annotation_path
 
@@ -196,7 +199,7 @@ def training(model, config):
 
         py_logger.info(f"INFO - Train data transformations defined")
 
-        train_dataset = PoseEstimationDataset(
+        train_dataset = COCOPoseEstimationDataset(
             data_dir=config["train_dir"],
             images_dir=config["train_imgs_dir"],
             json_file=config["train_anns"],
@@ -204,9 +207,10 @@ def training(model, config):
             edge_links=EDGE_LINKS,
             edge_colors=EDGE_COLORS,
             keypoint_colors=KEYPOINT_COLORS,
+            include_empty_samples=False
         )
 
-        val_dataset = PoseEstimationDataset(
+        val_dataset = COCOPoseEstimationDataset(
             data_dir=config["val_dir"],
             images_dir=config["val_imgs_dir"],
             json_file=config["val_anns"],
@@ -214,6 +218,7 @@ def training(model, config):
             edge_links=EDGE_LINKS,
             edge_colors=EDGE_COLORS,
             keypoint_colors=KEYPOINT_COLORS,
+            include_empty_samples=False
         )
 
         py_logger.info(f"INFO - Train datasets created")
@@ -259,8 +264,9 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
         json_files (list): List of all JSON files in the input directory.
     """
     try:
-        full_tmp_training_path = os.path.join(OUTPUT_PATH, "training") 
+        full_tmp_training_path = os.path.join(OUTPUT_PATH, "training")
         os.makedirs(full_tmp_training_path, exist_ok=True)
+        py_logger.info(f"Training output path is: {full_tmp_training_path}")
 
         all_videos_names = []
         all_json_data = {"files": []}
@@ -296,16 +302,20 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
         # Extract frames from all videos
         all_json_data_file = os.path.join(full_tmp_training_path, "all_json_data.json")
         save_json(all_json_data, all_json_data_file)
+        py_logger.info(f"All combined anns file path is: {all_json_data_file}")
+
         frames_folder = extract_frames_from_videos(all_videos_names, full_tmp_training_path)
+        py_logger.info(f"Extracted frames folder is: {frames_folder}")
 
         # Convert data to COCO format        
         coco_ann_file = "coco_ann.json"
-
+        
         extracted_frames = []
         for file in os.listdir(frames_folder):
             extracted_frames.append(os.path.join(frames_folder, file))
 
         coco_data_path, coco_data = convert_to_coco(all_json_data, extracted_frames, full_tmp_training_path, coco_ann_file)
+        py_logger.info(f"All combined converted anns file path is: {coco_data_path}")
 
         # Split frames into train and validation sets
         # train_folder, val_folder, train_coco_ann, val_coco_ann = train_val_split(frames_folder, full_tmp_training_path, coco_data)
@@ -313,19 +323,21 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
         # split_pose_dataset(coco_data_path, "/kaggle/working/train_anns.json", "/kaggle/working/val_anns.json", 0.2)
         train_coco_ann, val_coco_ann = split_pose_dataset(coco_data, full_tmp_training_path, 0.2)
 
+
         # Configure training parameters
         train_config = {
             "weights_path": WEIGHTS_PATH,
             "train_dir": full_tmp_training_path,
-            "train_imgs_dir": extracted_frames,
-            "train_anns": train_coco_ann,
+            "train_imgs_dir": "extracted_frames",
+            "train_anns": "train_anns.json",
             "val_dir": full_tmp_training_path,
-            "val_imgs_dir": extracted_frames,
-            "val_anns": val_coco_ann,
+            "val_imgs_dir": "extracted_frames",
+            "val_anns": "val_anns.json",
             "NUM_EPOCHS": 5,  # Default; can be modified as needed
         }
 
         # Start training
+        # py_logger.info(f"Train config: {train_config}")
         training(model, train_config)
 
     except Exception as err:

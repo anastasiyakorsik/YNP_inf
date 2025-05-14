@@ -55,7 +55,7 @@ def generate_unique_id():
     Generate a unique integer ID.
     """
     try:
-        return uuid.uuid4().int & (1 << 64) - 1
+        return uuid.uuid4().int & (1 << 32) - 1
     except Exception as err:
         py_logger.exception(f"Exception occured in training.convert.generate_unique_id() {err=}, {type(err)=}", exc_info=True)
 
@@ -135,14 +135,26 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
 
             # Process annotations for this frame
             for video_data in input_json["files"]:
-                video_name_from_json = os.path.splitext(os.path.basename(video_data["file_name"]))[0]
+                video_name_from_json = os.path.basename(video_data["file_name"])
+                # py_logger.info(f"video_name_from_json = {video_name_from_json}, video_name = {video_name}, frame_file = {frame_file}, frame_path = {frame_path}")
                 if video_name_from_json == video_name:
                     for chain in video_data["file_chains"]:
                         for markup in chain["chain_markups"]:
+                            # py_logger.info(type(markup["markup_frame"]), markup["markup_frame"])
                             if markup["markup_frame"] == frame_id:
                                 annotation_id = generate_unique_id()
                                 bbox = convert_bbox(markup["markup_path"]) # пересмотреть
                                 keypoints, num_keypoints = convert_keypoints(markup["markup_path"]) # переписать  
+
+                                # py_logger.info(
+                                #     {'id': annotation_id,
+                                #     'image_id': image_id,
+                                #     'category_id': 1,  # Person category
+                                #     'bbox': bbox,
+                                #     'keypoints': keypoints,
+                                #     'num_keypoints': num_keypoints,
+                                #     'iscrowd': 0,
+                                #     'segmentation': []})
 
                                 coco_data["annotations"].append({
                                     "id": annotation_id,
