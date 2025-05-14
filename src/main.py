@@ -9,7 +9,7 @@ from super_gradients.training import models
 from inference.inference import inference_mode
 from training.train import train_mode
 from common.json_processing import load_json, collect_json_files
-from common.check_input import check_input_files
+from common.check_input import check_input_files_for_training_mode
 from common.container_status import ContainerStatus as CS
 from common.generate_callback_data import generate_error_data, generate_progress_data
 
@@ -59,12 +59,6 @@ def main():
         if host_web:
             cs = CS(host_web)
 
-        result_of_input_files_check = check_input_files(input_json_files, training_mode)
-        if not result_of_input_files_check:
-            py_logger.error(f"Incorrect input files or input files do not exist")
-            if cs is not None:
-                cs.post_error(generate_error_data(f"No inference result"))
-
         if cs is not None:
             cs.post_start({"msg": "Start processing by YOLO-NAS Pose model"})
             # cs.post_progress(generate_progress_data("start", 0))
@@ -79,10 +73,16 @@ def main():
 
         reload_model = False
 
-        if training_mode and result_of_input_files_check:
-            py_logger.info("Start training")
-            train_mode(model, input_json_files, WEIGHTS_PATH, cs)
-            reload_model = True
+        if training_mode:
+            result_of_input_files_check = check_input_files_for_training_mode(input_json_files)
+            if not result_of_input_files_check:
+                py_logger.error(f"Incorrect input files or input files do not exist")
+                if cs is not None:
+                    cs.post_error(generate_error_data(f"No inference result"))
+            else:
+                py_logger.info("Start training")
+                train_mode(model, input_json_files, WEIGHTS_PATH, cs)
+                reload_model = True
         
         if reload_model:
             py_logger.info("Reload model from updated weights:")
@@ -92,7 +92,7 @@ def main():
 
         # for each video go inference and create output json with new data
         py_logger.info("Start inference")
-        inference_result = inference_mode(model, input_json_files, cs) if result_of_input_files_check else []
+        inference_result = inference_mode(model, input_json_files, cs) if input_json_files else []
         
         if inference_result:
             py_logger.info(f"Inference result: {inference_result}")
