@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from training.train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
 from training.keypoint_transforms import define_set_transformations
 from training.convert import convert_to_coco
+from training.train_callback import extract_latest_experiment_logs
 
 import cv2
 from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
@@ -21,6 +22,8 @@ from common.json_processing import load_json, save_json
 from common.generate_callback_data import generate_error_data, generate_progress_data
 from sklearn.model_selection import train_test_split
 from inference.video_processor import get_frame_times, check_video_extension
+from common.generate_callback_data import generate_error_data, generate_progress_data
+
 
 def check_input_file_for_skeleton_markup_containing(input_json_data):
     try:
@@ -52,7 +55,12 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
         os.makedirs(extract_frames_folder, exist_ok=True)
 
         frame_count = 0
+
+        file_num = 0
         for video_path in video_paths:
+
+            file_num += 1
+            progress = round((file_num) / len(video_paths) * 100, 2)
 
             if not os.path.exists(video_path):
                 py_logger.error(f"Video file not found: {video_path}")
@@ -76,6 +84,8 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
                 frame_idx += 1
 
             py_logger.info(f"{frame_idx} frames from {video_name} has been extracted. Total amount of extracted frames: {frame_count}")
+            if cs is not None:
+                cs.post_progress(generate_progress_data(f"Извлечение кадров из {video_name} для создания датасета", progress))
             cap.release()
 
         py_logger.info(f"Extracting completed. Total amount of extracted frames: {frame_count}")
@@ -197,7 +207,7 @@ def split_pose_dataset(coco_data: dict, train_path: str, val_fraction: float):
     return train_annotation_path, val_annotation_path
 
 
-def training(model, config):
+def training(model, config, container_status = None):
     """
     Train the YOLO-NAS Pose model and save model weights.
     """
@@ -258,7 +268,17 @@ def training(model, config):
         trainer.train(model, training_params=train_params, train_loader=train_dataloader, valid_loader=val_dataloader)
         py_logger.info(f"INFO - Training completed in {time.time() - start_time:.2f}s")
 
-        best_weights_path = os.path.join(os.path.join(ckpt_path, "yolo_nas_pose_run"), "ckpt_best.pth")
+        logs = extract_latest_experiment_logs(log_dir=trainer.checkpoints_dir_path)
+        for i in range(NUM_EPOCHS):
+            py_logger.info(f"Лог эпохи {i}:\n{logs[i]}")
+            epochs_progress = round((i+1) / NUM_EPOCHS * 100, 2)
+            if container_status is not None:
+                container_status.post_progress(generate_progress_data(f"Обучение. Данные эпохи {i}:\n{logs[i]}", epochs_progress))
+
+
+        # best_weights_path = os.path.join(os.path.join(ckpt_path, "yolo_nas_pose_run"), "ckpt_best.pth")
+        # trainer.checkpoints_dir_path
+        best_weights_path = os.path.join(trainer.checkpoints_dir_path, "ckpt_best.pth")
 
         shutil.copy(best_weights_path, WEIGHTS_PATH)
         py_logger.info(f"INFO - Weights are updated")
@@ -314,7 +334,7 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
                 py_logger.error(f"Failed to train on {file_name}. File extension doens't match appropriate ones.")
                 if cs is not None:
                     cs.post_error(generate_error_data(f"Failed to train on {file_name}. File extension doens't match appropriate ones.", file_name))
-                continue  # Skip if file extension doens't match appropriate ones    
+                continue  # Skip if file extension doens't match appropriate ones
 
             all_json_data["files"].append(input_data)
 
@@ -335,7 +355,7 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
         for file in os.listdir(frames_folder):
             extracted_frames.append(os.path.join(frames_folder, file))
 
-        coco_data_path, coco_data = convert_to_coco(all_json_data, extracted_frames, full_tmp_training_path, coco_ann_file)
+        coco_data_path, coco_data = convert_to_coco(all_json_data, extracted_frames, full_tmp_training_path, coco_ann_file, cs)
         py_logger.info(f"All combined converted anns file path is: {coco_data_path}")
 
         # Split frames into train and validation sets
@@ -359,7 +379,9 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
 
         # Start training
         # py_logger.info(f"Train config: {train_config}")
-        training(model, train_config)
+        training(model, train_config, cs)
 
     except Exception as err:
-        py_logger.exception(f"Exception occured in training.train.train_mode() {err=}, {type(err)=}", exc_info=True)
+        py_logger.exception(f"Exception occurred in training.train.train_mode() {err=}, {type(err)=}", exc_info=True)
+        if cs is not None:
+            cs.post_error(generate_error_data(f"Failed to  train. Exception occurred in training.train.train_mode(): {err}"))

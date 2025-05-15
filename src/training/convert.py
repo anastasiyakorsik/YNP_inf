@@ -5,6 +5,7 @@ from datetime import datetime
 from PIL import Image
 from common.logger import py_logger
 from common.json_processing import load_json, save_json
+from common.generate_callback_data import generate_error_data, generate_progress_data
 
 def info_coco():
     """
@@ -105,7 +106,7 @@ def extract_image_dimensions(image_path):
         py_logger.exception(f"Exception occured in training.convert.extract_image_dimensions() {err=}, {type(err)=}", exc_info=True)
 
 
-def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann_file):
+def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann_file, cs = None):
     """
     Convert YOLO-NAS-Pose annotations to COCO format.
     """
@@ -134,8 +135,15 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
             })
 
             # Process annotations for this frame
+            file_num = 0
             for video_data in input_json["files"]:
                 video_name_from_json = os.path.basename(video_data["file_name"])
+
+                file_num += 1
+                progress = round((file_num) / len(input_json["files"]) * 100, 2)
+                if cs is not None:
+                    cs.post_progress(generate_progress_data(f"Создание аннотаций для кадров видео {video_name_from_json}", progress))
+
                 # py_logger.info(f"video_name_from_json = {video_name_from_json}, video_name = {video_name}, frame_file = {frame_file}, frame_path = {frame_path}")
                 if video_name_from_json == video_name:
                     for chain in video_data["file_chains"]:

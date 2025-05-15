@@ -2,7 +2,6 @@ from super_gradients.training.models.pose_estimation_models.yolo_nas_pose import
 from super_gradients.training.metrics import PoseEstimationMetrics
 from super_gradients.training.utils.callbacks import ExtremeBatchPoseEstimationVisualizationCallback, Phase
 from super_gradients.training.utils.early_stopping import EarlyStop
-
     
 KEYPOINT_NAMES = [
     "nose",
