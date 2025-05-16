@@ -118,7 +118,7 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
             "categories": categories_coco()
         }
 
-        for frame_path in extracted_frames:
+        for frame_counter, frame_path in enumerate(extracted_frames):
             # Extract image metadata
             frame_file = os.path.basename(frame_path)
             video_name, frame_number = frame_file.rsplit('_', 1)
@@ -135,34 +135,17 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
             })
 
             # Process annotations for this frame
-            file_num = 0
             for video_data in input_json["files"]:
                 video_name_from_json = os.path.basename(video_data["file_name"])
 
-                file_num += 1
-                progress = round((file_num) / len(input_json["files"]) * 100, 2)
-                if cs is not None:
-                    cs.post_progress(generate_progress_data(f"Создание аннотаций для кадров видео {video_name_from_json}", progress))
-
-                # py_logger.info(f"video_name_from_json = {video_name_from_json}, video_name = {video_name}, frame_file = {frame_file}, frame_path = {frame_path}")
                 if video_name_from_json == video_name:
                     for chain in video_data["file_chains"]:
                         for markup in chain["chain_markups"]:
-                            # py_logger.info(type(markup["markup_frame"]), markup["markup_frame"])
                             if markup["markup_frame"] == frame_id:
                                 annotation_id = generate_unique_id()
                                 bbox = convert_bbox(markup["markup_path"]) # пересмотреть
                                 keypoints, num_keypoints = convert_keypoints(markup["markup_path"]) # переписать  
 
-                                # py_logger.info(
-                                #     {'id': annotation_id,
-                                #     'image_id': image_id,
-                                #     'category_id': 1,  # Person category
-                                #     'bbox': bbox,
-                                #     'keypoints': keypoints,
-                                #     'num_keypoints': num_keypoints,
-                                #     'iscrowd': 0,
-                                #     'segmentation': []})
 
                                 coco_data["annotations"].append({
                                     "id": annotation_id,
@@ -174,11 +157,19 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
                                     "iscrowd": 0,
                                     "segmentation": []
                                 })
+            
+            progress = round(((frame_counter) / len(frame_path)) * 100, 2)
+            if cs is not None:
+                cs.post_progress(generate_progress_data(f"Converting annotations for frame {frame_path}", progress))
+        
         coco_data_path = os.path.join(full_tmp_frames_path, coco_ann_file)
         if coco_data:
             save_json(coco_data, coco_data_path)
         else:
             py_logger.error(f"coco_data IS EMPTY")
+            if cs is not None:
+                cs.post_error(generate_error_data(f"Converted annotations is empty"))
+        
         py_logger.info(f"INFO - COCO annotations saved to {coco_data_path}")
         return coco_data_path, coco_data
     except Exception as err:

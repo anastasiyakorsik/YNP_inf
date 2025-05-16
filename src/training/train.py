@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from training.train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
 from training.keypoint_transforms import define_set_transformations
 from training.convert import convert_to_coco
-from training.train_callback import extract_latest_experiment_logs
+from training.train_callback import EpochProgressToContainer, EndTrainingReporter
 
 import cv2
 from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
@@ -93,6 +93,8 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
         return extract_frames_folder
     
     except Exception as err:
+        if cs is not None:
+            cs.post_error(generate_error_data(f"Failed to train. training.train.extract_frames_from_videos(): {err}"))        
         py_logger.exception(f"Exception occured in training.train.extract_frames_from_videos() {err=}, {type(err)=}", exc_info=True)
 
 def train_val_split(images_path: str, full_tmp_training_path: str, coco_data: dict, split_ratio: float = 0.2):
@@ -207,7 +209,7 @@ def split_pose_dataset(coco_data: dict, train_path: str, val_fraction: float):
     return train_annotation_path, val_annotation_path
 
 
-def training(model, config, container_status = None):
+def training(model, config, cs = None):
     """
     Train the YOLO-NAS Pose model and save model weights.
     """
@@ -262,18 +264,24 @@ def training(model, config, container_status = None):
 
         train_params = define_train_params(NUM_EPOCHS)
 
+        train_params['phase_callbacks'] = [
+            EpochProgressToContainer(cs),
+            EndTrainingReporter(cs)
+        ]
+
         # py_logger.info("INFO - Starting training...")
         start_time = time.time()
         py_logger.info(f"INFO - Train process starting")
         trainer.train(model, training_params=train_params, train_loader=train_dataloader, valid_loader=val_dataloader)
         py_logger.info(f"INFO - Training completed in {time.time() - start_time:.2f}s")
 
-        logs = extract_latest_experiment_logs(log_dir=trainer.checkpoints_dir_path)
-        for i in range(NUM_EPOCHS):
-            py_logger.info(f"Лог эпохи {i}:\n{logs[i]}")
-            epochs_progress = round((i+1) / NUM_EPOCHS * 100, 2)
-            if container_status is not None:
-                container_status.post_progress(generate_progress_data(f"Обучение. Данные эпохи {i}:\n{logs[i]}", epochs_progress))
+
+        # logs = extract_latest_experiment_logs(log_dir=trainer.checkpoints_dir_path)
+        # for i in range(NUM_EPOCHS):
+        #     py_logger.info(f"Лог эпохи {i}:\n{logs[i]}")
+        #     epochs_progress = round((i+1) / NUM_EPOCHS * 100, 2)
+        #     if cs is not None:
+        #         cs.post_progress(generate_progress_data(f"Обучение. Данные эпохи {i}:\n{logs[i]}", epochs_progress))
 
 
         # best_weights_path = os.path.join(os.path.join(ckpt_path, "yolo_nas_pose_run"), "ckpt_best.pth")
@@ -284,6 +292,8 @@ def training(model, config, container_status = None):
         py_logger.info(f"INFO - Weights are updated")
 
     except Exception as e:
+        if cs is not None:
+            cs.post_error(generate_error_data(f"Failed to train: {e}"))
         py_logger.error(f"ERROR - Training failed: {e}")
 
 
@@ -326,8 +336,7 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
             if not check_input_file_for_skeleton_markup_containing(data):
                 py_logger.error(f"Failed to train on {file_name}. File does not contain skeleton markup.")
                 if cs is not None:
-                    cs.post_error(
-                        generate_error_data(f"Failed to train on {file_name}. File does not contain skeleton markup.", file_name))
+                    cs.post_error(generate_error_data(f"Failed to train on {file_name}. File does not contain skeleton markup.", file_name))
                 continue  # Skip if file does not exist
                 
             if not check_video_extension(file_name):
@@ -374,7 +383,7 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
             "val_dir": full_tmp_training_path,
             "val_imgs_dir": "extracted_frames",
             "val_anns": "val_anns.json",
-            "NUM_EPOCHS": 5,  # Default; can be modified as needed
+            "NUM_EPOCHS": 10,  # Default; can be modified as needed
         }
 
         # Start training
@@ -382,6 +391,6 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
         training(model, train_config, cs)
 
     except Exception as err:
-        py_logger.exception(f"Exception occurred in training.train.train_mode() {err=}, {type(err)=}", exc_info=True)
         if cs is not None:
             cs.post_error(generate_error_data(f"Failed to  train. Exception occurred in training.train.train_mode(): {err}"))
+        py_logger.exception(f"Exception occurred in training.train.train_mode() {err=}, {type(err)=}", exc_info=True)
