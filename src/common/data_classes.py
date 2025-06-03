@@ -101,4 +101,4 @@ def recursive_asdict(obj):
             
 def save_class_in_json(save_data, save_file_name: str):    
     with open(save_file_name, 'w', encoding='utf-8') as f:
-        json.dump(recursive_asdict(save_data), f, ensure_ascii=False, indent=4)
+        json.dump(recursive_asdict(save_data), f, ensure_ascii=False)
