@@ -133,6 +133,21 @@ def create_add_json(input_data: dict, predictions: list, matched_bboxes: list, f
         return out_add_result
 '''
 
+def define_vectors_value(entity: str, input_vector_index_or_value, predictions):
+    try:
+        if isinstance(input_vector_index_or_value, int):
+            output_vector_value = predictions if entity == 'markup' else calculate_chain_vector(
+                [], predictions)
+            return output_vector_value
+        else:
+            output_vector_value = [] + predictions if entity == 'markup' else calculate_chain_vector(
+                [], predictions)
+            return output_vector_value
+    except Exception as ex:
+        py_logger.exception(f"Exception occurred in inference.define_vectors_value_and_index: {ex}", exc_info=True)
+        return None, None
+
+
 def define_vectors_value_and_index(entity: str, input_vector_index_or_value, input_pkl_vectors: list, output_vectors_len: int,
                                    predictions):
     '''
@@ -160,8 +175,10 @@ def define_vectors_value_and_index(entity: str, input_vector_index_or_value, inp
                     return output_vector_index, output_vector_value, output_vector_parent_id
             else:
                 output_vector_index = output_vectors_len
-                output_vector_value = input_vector_index_or_value + predictions if entity == 'markup' else calculate_chain_vector(
-                    input_vector_index_or_value, predictions)
+                # output_vector_value = input_vector_index_or_value + predictions if entity == 'markup' else calculate_chain_vector(
+                #    input_vector_index_or_value, predictions)
+                output_vector_value = [] + predictions if entity == 'markup' else calculate_chain_vector(
+                    [], predictions)
                 output_vector_parent_id = None
                 return output_vector_index, output_vector_value, output_vector_parent_id
         else:
@@ -175,8 +192,8 @@ def define_vectors_value_and_index(entity: str, input_vector_index_or_value, inp
 
 
 def create_out_markup_if_bboxes_matched(predicted_person_nodes_per_frame, predicted_person_scores_per_frame,
-                                        predicted_person_edges_per_frame, input_markup, input_pkl_markups_vectors,
-                                        output_pkl_markup_vectors_len, frame, frame_times):
+                                        predicted_person_edges_per_frame, input_markup, output_pkl_markup_vectors_len,
+                                        frame, frame_times):
     try:
         input_markup_path = input_markup['markup_path']
 
@@ -196,15 +213,10 @@ def create_out_markup_if_bboxes_matched(predicted_person_nodes_per_frame, predic
         mean_conf_score = statistics.fmean(predicted_person_scores_per_frame)
         out_markup.markup_confidence = mean_conf_score
 
-        output_markup_vector_index, output_markup_vector_value, output_markup_parent_id = define_vectors_value_and_index(
-            'markup', input_markup.get('markup_vector', []), input_pkl_markups_vectors, output_pkl_markup_vectors_len,
-            predicted_person_scores_per_frame)
+        output_markup_vector_value = define_vectors_value(
+            'markup', input_markup.get('markup_vector', []), predicted_person_scores_per_frame)
 
-        #py_logger.info(f"Current markup vectors data: markup_vector_index = {output_markup_vector_index}; output_markup_vector_len = {len(output_markup_vector_value)}")
-
-        if output_markup_parent_id:
-            out_markup.markup_parent_id = output_markup_parent_id
-        out_markup.markup_vector = output_markup_vector_index
+        out_markup.markup_vector = output_pkl_markup_vectors_len
 
         return mean_conf_score, out_markup, output_markup_vector_value
     except Exception as ex:
@@ -277,7 +289,7 @@ def collect_file_chains(input_data: dict, model_predictions_per_video: list, vid
 
                     mean_conf_score, out_markup, output_markup_vector_value = create_out_markup_if_bboxes_matched(
                         predicted_nodes[i], predicted_scores[i], predicted_edges, input_markup,
-                        [], len(output_pkl_markups_vectors), int(markup_frame), frame_times)
+                        len(output_pkl_markups_vectors), int(markup_frame), frame_times)
 
                     matched_chain_bboxes += 1
                     matched_predicted_bboxes.append(predicted_bboxes[i])
@@ -303,14 +315,13 @@ def collect_file_chains(input_data: dict, model_predictions_per_video: list, vid
                     predicted_markup_vectors)
                 '''
 
-                output_chain_vector_index, output_chain_vector_value, _ = define_vectors_value_and_index(
-                    'chain', input_chain_index, [], len(output_pkl_chains_vectors),
-                    predicted_markup_vectors)
+                output_chain_vector_value = define_vectors_value('chain', input_chain_index,
+                                                                 predicted_markup_vectors)
 
                 out_chain = Chain()
                 chains_count += 1
                 out_chain.chain_name = input_chain.get('chain_name', '')
-                out_chain.chain_vector = output_chain_vector_index
+                out_chain.chain_vector = len(output_pkl_chains_vectors)
                 out_chain.chain_markups = chain_markups
 
                 output_pkl_chains_vectors.append(output_chain_vector_value)
