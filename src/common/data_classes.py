@@ -39,7 +39,7 @@ class Markup:
         markup_parent_id (str): Markup Parent ID
         markup_time (float): Time of current video frame 
         markup_frame (int): Video frame number
-        markup_vector (list): List of input scores and keypoints scores
+        markup_vector (int): Index of markup vector in pkl file
         markup_path (MarkupPath): Structure containing information about person bbox and skeleton in current frame
         markup_confidence (float): Mean confidence score for all skeleton nodes
     """
@@ -47,7 +47,7 @@ class Markup:
     markup_parent_id: str
     markup_time: float
     markup_frame: int
-    markup_vector = list[float]
+    markup_vector: int
     markup_path: MarkupPath
     markup_confidence: float
 
@@ -57,12 +57,12 @@ class Chain:
 
     Attributes:
         chain_name (str): Chain name
-        chain_vector (list): List of input scores and mean scores of all keypoints in chain
+        chain_vector (int): Index of chain_vector in pkl file
         chain_confidence (float): Chain mean confidence score
         chain_markups (list): Structure containing information about person bboxes and skeletons in video
     """
     chain_name: str
-    chain_vector: list[float]
+    chain_vector: int
     chain_confidence: float
     chain_markups: list[Markup]
 
