@@ -524,7 +524,7 @@ def inference_mode(model, json_files: list, container_status = None):
                 file_num += 1
                 progress = round((file_num) / len(json_files) * 100, 2)
 
-                if container_status is not None and file_num==1:
+                if container_status is not None and file_num == 1:
                     container_status.post_progress(
                         generate_progress_data(f"Создание предсказаний модели", 0))
 
