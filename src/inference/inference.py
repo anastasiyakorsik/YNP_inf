@@ -467,7 +467,7 @@ def create_json_with_predictions(input_data: dict, frame_times: list, model, pro
                 f"Failed to inference. Exception occurred in inference.create_json_with_predictions(): {e}", f"Processing file {input_data['file_name']}"))
 
 
-def inference_mode(model, json_files: list, cs = None):
+def inference_mode(model, json_files: list, container_status = None):
     """
     Inference program mode. Processing video and
     adding new data about skeleton to each input JSON and save
@@ -475,7 +475,7 @@ def inference_mode(model, json_files: list, cs = None):
     Arguments:
         model: YOLO-NAS Pose downloaded model
         json_files (list): List of all json files in input directory
-        cs (obj): [OPTIONAL] ContainerStatus object
+        container_status (obj): [OPTIONAL] ContainerStatus object
         
     Returns: Dict for post_end callback
     """
@@ -510,23 +510,34 @@ def inference_mode(model, json_files: list, cs = None):
 
                 if not os.path.exists(full_file_name):
                     py_logger.error(f"Failed to create predictions for {file_name}. File does not exist.")
-                    if cs is not None:
-                        cs.post_error(generate_error_data(f"Failed to create predictions for {file_name}. File does not exist.", f"Processing file {file_name}"))
+                    if container_status is not None:
+                        container_status.post_error(generate_error_data(f"Failed to create predictions for {file_name}. File does not exist.", f"Processing file {file_name}"))
                     continue  # Skip if file does not exist
                 
                 if not check_video_extension(file_name):
                     py_logger.error(f"Failed to create predictions for {file_name}. File extension doesn't match appropriate ones.")
-                    if cs is not None:
-                        cs.post_error(generate_error_data(f"Failed to create predictions for {file_name}. File extension doesn't match appropriate ones.", f"Processing file {file_name}"))
+                    if container_status is not None:
+                        container_status.post_error(generate_error_data(f"Failed to create predictions for {file_name}. File extension doesn't match appropriate ones.", f"Processing file {file_name}"))
                     continue  # Skip if file extension doesn't match appropriate ones
 
                 # Make and process model predictions for video
                 file_num += 1
                 progress = round((file_num) / len(json_files) * 100, 2)
 
+                if container_status is not None:
+                    container_status.post_progress(
+                        generate_progress_data(f"Создание предсказаний модели", 0))
+
+                    # Processing inference result
+                    container_status.post_progress(
+                        generate_progress_data("Обработка полученных предсказаний и входных данных", 0))
+
+                    container_status.post_progress(
+                        generate_progress_data("Запись и сохранение результатов", 0))
+
                 frame_times = get_frame_times(full_file_name)
                 if frame_times:
-                    out_file = create_json_with_predictions(input_data, frame_times, model, progress, cs)
+                    out_file = create_json_with_predictions(input_data, frame_times, model, progress, container_status)
             
                     output_files.append(out_file["out_file"])
                     out_chains_count = out_chains_count + out_file["chains_count"]
@@ -552,6 +563,6 @@ def inference_mode(model, json_files: list, cs = None):
 
     except Exception as e:
         py_logger.exception(f'Exception occurred in inference.inference_mode(): {e}', exc_info=True)
-        if cs is not None:
-            cs.post_error(generate_error_data(f"Failed to inference. Exception occurred in inference.inference_mode(): {e}"))
+        if container_status is not None:
+            container_status.post_error(generate_error_data(f"Failed to inference. Exception occurred in inference.inference_mode(): {e}"))
         return inference_result
