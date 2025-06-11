@@ -11,20 +11,22 @@ from super_gradients.training.datasets.pose_estimation_datasets import YoloNASPo
 from super_gradients.training.datasets.pose_estimation_datasets import COCOPoseEstimationDataset
 from torch.utils.data import DataLoader
 
-from training.train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
-from training.keypoint_transforms import define_set_transformations
-from training.convert import convert_to_coco
-from training.train_callback import EpochProgressToContainer
+
+from src.training.train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
+from src.training.keypoint_transforms import define_set_transformations
+from src.training.convert import convert_to_coco
+from src.training.train_callback import EpochProgressToContainer, EndTrainingReporter
+
 
 import cv2
-from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
+from src.workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
 
-from common.logger import py_logger
-from common.json_processing import load_json, save_json
-from common.generate_callback_data import generate_error_data, generate_progress_data
+from src.common.logger import py_logger
+from src.common.json_processing import load_json, save_json
+from src.common.generate_callback_data import generate_error_data, generate_progress_data
 from sklearn.model_selection import train_test_split
-from inference.video_processor import get_frame_times, check_video_extension
-from common.generate_callback_data import generate_error_data, generate_progress_data
+from src.inference.video_processor import get_frame_times, check_video_extension
+from src.common.generate_callback_data import generate_error_data, generate_progress_data
 
 
 def check_input_file_for_skeleton_markup_containing(input_json_data):
@@ -59,6 +61,8 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
         frame_count = 0
 
         file_num = 0
+        if cs is not None:
+            cs.post_progress(generate_progress_data(f"Извлечение кадров для создания датасета", 0))
         for video_path in video_paths:
 
             file_num += 1
@@ -87,7 +91,7 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
 
             py_logger.info(f"{frame_idx} frames from {video_name} has been extracted. Total amount of extracted frames: {frame_count}")
             if cs is not None:
-                cs.post_progress(generate_progress_data(f"Извлечение кадров из {video_name} для создания датасета", progress))
+                cs.post_progress(generate_progress_data(f"Извлечение кадров для создания датасета", progress, video_name))
             cap.release()
 
         py_logger.info(f"Extracting completed. Total amount of extracted frames: {frame_count}")
@@ -219,7 +223,7 @@ def training(model, config, cs = None):
         ckpt_path = os.path.join(config["train_dir"], "checkpoints") 
         os.makedirs(ckpt_path, exist_ok=True)
 
-        py_logger.info(f"INFO - Training chekpoint path created")
+        py_logger.info(f"INFO - Training checkpoint path created")
 
         train_transforms, val_transforms = define_set_transformations()
         NUM_EPOCHS = config.get("NUM_EPOCHS", 10)
@@ -273,6 +277,8 @@ def training(model, config, cs = None):
         py_logger.info("INFO - Training params defined. Starting training ...")
         start_time = time.time()
         py_logger.info(f"INFO - Train process starting")
+        if cs is not None:
+            cs.post_progress(generate_progress_data(f"Процесс обучения", 0))
         trainer.train(model, training_params=train_params, train_loader=train_dataloader, valid_loader=val_dataloader)
         py_logger.info(f"INFO - Training completed in {time.time() - start_time:.2f}s")
 
@@ -357,8 +363,12 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
             all_videos_names.append(full_file_name)
 
             py_logger.info(f"Обработка видео и аннотаций. Видео: {file_name}. Прогресс {progress}/100")
+            
+            if cs is not None and json_file_cnt == 1:
+                cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", 0))
             if cs is not None:
-                cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress))
+                cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress, file_name))
+
 
 
         if all_json_data["files"] is not None:
@@ -403,9 +413,9 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
             # py_logger.info(f"Train config: {train_config}")
             training(model, train_config, cs)
         else:
-            py_logger.info(f"Обработанных аннотаций нет, Обучаться не на чем. Обучение завершено")
+            py_logger.info(f"Обработанных аннотаций нет. Нет данных для обучения. Обучение завершено")
             if cs is not None:
-                cs.post_progress(generate_progress_data(f"Обработанных аннотаций нет, Обучаться не на чем. Обучение завершено", 100))
+                cs.post_progress(generate_progress_data(f"Обработанных аннотаций нет. Нет данных для обучения. Обучение завершено", 100))
 
     except Exception as err:
         if cs is not None:
