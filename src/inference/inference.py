@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 
 from src.inference.prediction_processor import get_prediction_per_frame, calculate_chain_vector
+from src.inference.bbox_processing import get_bbox_from_keypoints
 from src.inference.video_processor import get_frame_times, check_video_extension
 from src.inference.bbox_processing import filter_bboxes_with_content, OUT_FRAMES
 
@@ -264,6 +265,17 @@ def collect_file_chains(input_data: dict, model_predictions_per_video: list, vid
                 if not ret:
                     py_logger.error(f"Error: Could not read frame {int(markup_frame)} from video {full_video_file_name}")
                     continue
+
+                x = input_markup['markup_path'].get("x", None)
+                y = input_markup['markup_path'].get("y", None)
+                width = input_markup['markup_path'].get("width", None)
+                height = input_markup['markup_path'].get("height", None)
+
+                if x is None or y is None or width is None or height is None:
+                    x, y, width, height = get_bbox_from_keypoints(input_markup['markup_path']["nodes"])
+
+                (input_markup['markup_path']["x"], input_markup['markup_path']["y"],
+                 input_markup['markup_path']["width"], input_markup['markup_path']["height"]) = x, y, width, height
 
                 input_markup_path = input_markup['markup_path']
 
@@ -524,7 +536,7 @@ def inference_mode(model, json_files: list, container_status = None):
                 file_num += 1
                 progress = round((file_num) / len(json_files) * 100, 2)
 
-                if container_status is not None:
+                if container_status is not None and file_num == 1:
                     container_status.post_progress(
                         generate_progress_data(f"Создание предсказаний модели", 0))
 

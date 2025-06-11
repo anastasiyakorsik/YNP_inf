@@ -72,6 +72,27 @@ def draw_bboxes_and_save(frame, frame_index, out_frame_name, existing_bbox, pred
     except Exception as e:
         py_logger.exception(f'Exception occurred in draw_bboxes(): {e}', exc_info=True)
 
+def get_bbox_from_keypoints(keypoints_dict):
+    """
+    Вычисляет ограничивающий прямоугольник (bbox) по ключевым точкам.
+
+    keypoints_dict: словарь вида {"node_0": {"x": float, "y": float}, ...}
+
+    Возвращает: (x_min, y_min, width, height)
+    """
+    xs = [point["x"] for point in keypoints_dict.values()]
+    ys = [point["y"] for point in keypoints_dict.values()]
+
+    x_min = min(xs)
+    x_max = max(xs)
+    y_min = min(ys)
+    y_max = max(ys)
+
+    width = x_max - x_min
+    height = y_max - y_min
+
+    return (x_min, y_min, width, height)
+
 def compute_iou(bbox1, bbox2):
     """
     Calculates Intersection over Union of two bboxes
