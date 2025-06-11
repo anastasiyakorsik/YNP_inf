@@ -3,6 +3,8 @@ import time
 import json
 import shutil
 import random
+import traceback
+
 
 from super_gradients.training import Trainer
 from super_gradients.training.datasets.pose_estimation_datasets import YoloNASPoseCollateFN
@@ -12,7 +14,7 @@ from torch.utils.data import DataLoader
 from training.train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
 from training.keypoint_transforms import define_set_transformations
 from training.convert import convert_to_coco
-from training.train_callback import EpochProgressToContainer, EndTrainingReporter
+from training.train_callback import EpochProgressToContainer
 
 import cv2
 from workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
@@ -265,11 +267,10 @@ def training(model, config, cs = None):
         train_params = define_train_params(NUM_EPOCHS)
 
         train_params['phase_callbacks'] = [
-            EpochProgressToContainer(cs),
-            EndTrainingReporter(cs)
+            EpochProgressToContainer(cs, NUM_EPOCHS)
         ]
 
-        # py_logger.info("INFO - Starting training...")
+        py_logger.info("INFO - Training params defined. Starting training ...")
         start_time = time.time()
         py_logger.info(f"INFO - Train process starting")
         trainer.train(model, training_params=train_params, train_loader=train_dataloader, valid_loader=val_dataloader)
@@ -292,9 +293,11 @@ def training(model, config, cs = None):
         py_logger.info(f"INFO - Weights are updated")
 
     except Exception as e:
+        error_details = traceback.format_exc()
         if cs is not None:
             cs.post_error(generate_error_data(f"Failed to train: {e}"))
-        py_logger.error(f"ERROR - Training failed: {e}")
+        py_logger.error(f"ERROR - Training failed: {e}.")
+        py_logger.error(f"ERROR - {error_details}")
 
 
 
@@ -316,79 +319,93 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
         all_json_data = {"files": []}
 
         # Load and combine data from all JSON files
+        json_file_cnt = 0
+        json_file_skip_cnt = 0
         for json_file in json_files:
 
-            full_json_path = os.path.join(INPUT_DATA_PATH, json_file)
-            py_logger.info(f"Processing current input JSON file: {full_json_path}")
-            data = load_json(full_json_path)
+            json_file_cnt += 1
+            progress = round(json_file_cnt / len(json_files) * 100, 2)
 
+            full_json_path = os.path.join(INPUT_DATA_PATH, json_file)
+            data = load_json(full_json_path)
             input_data = data['files'][0]
+            # py_logger.info(f"Processing current input JSON file: {full_json_path}")
+
             file_name = os.path.basename(input_data['file_name'])
             full_file_name = os.path.join(INPUT_PATH, file_name)
-            py_logger.info(f"Processing current video file: {full_file_name}")
+            # py_logger.info(f"Processing current video file: {full_file_name}")
 
             if not os.path.exists(full_file_name):
-                py_logger.error(f"Failed to train on {file_name}. File does not exist.")
+                py_logger.error(f"Ошибка обработки видео и аннотаций. Видео не существует: {file_name}. Прогресс {progress}/100.")
                 if cs is not None:
-                    cs.post_error(generate_error_data(f"Failed to train on {file_name}. File does not exist.", file_name))
+                    cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress, train_msg=f"Видео не существует: {file_name}"))
                 continue  # Skip if file does not exist
 
             if not check_input_file_for_skeleton_markup_containing(data):
-                py_logger.error(f"Failed to train on {file_name}. File does not contain skeleton markup.")
+                py_logger.error(f"Ошибка обработки видео и аннотаций. Видео не cодержит разметки скелетов: {file_name}. Прогресс {progress}/100.")
                 if cs is not None:
-                    cs.post_error(generate_error_data(f"Failed to train on {file_name}. File does not contain skeleton markup.", file_name))
+                    cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress, train_msg=f"Видео не cодержит разметки скелетов: {file_name}"))
                 continue  # Skip if file does not exist
-                
+
             if not check_video_extension(file_name):
-                py_logger.error(f"Failed to train on {file_name}. File extension doens't match appropriate ones.")
+                py_logger.error(f"Ошибка обработки видео и аннотаций. Видео с не подходящим расширением: {file_name}. Прогресс {progress}/100.")
                 if cs is not None:
-                    cs.post_error(generate_error_data(f"Failed to train on {file_name}. File extension doens't match appropriate ones.", file_name))
+                    cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress, train_msg=f"Видео с не подходящим расширением: {file_name}"))
                 continue  # Skip if file extension doens't match appropriate ones
 
             all_json_data["files"].append(input_data)
-
             all_videos_names.append(full_file_name)
 
-        # Extract frames from all videos
-        all_json_data_file = os.path.join(full_tmp_training_path, "all_json_data.json")
-        save_json(all_json_data, all_json_data_file)
-        py_logger.info(f"All combined anns file path is: {all_json_data_file}")
-
-        frames_folder = extract_frames_from_videos(all_videos_names, full_tmp_training_path)
-        py_logger.info(f"Extracted frames folder is: {frames_folder}")
-
-        # Convert data to COCO format        
-        coco_ann_file = "coco_ann.json"
-        
-        extracted_frames = []
-        for file in os.listdir(frames_folder):
-            extracted_frames.append(os.path.join(frames_folder, file))
-
-        coco_data_path, coco_data = convert_to_coco(all_json_data, extracted_frames, full_tmp_training_path, coco_ann_file, cs)
-        py_logger.info(f"All combined converted anns file path is: {coco_data_path}")
-
-        # Split frames into train and validation sets
-        # train_folder, val_folder, train_coco_ann, val_coco_ann = train_val_split(frames_folder, full_tmp_training_path, coco_data)
-
-        # split_pose_dataset(coco_data_path, "/kaggle/working/train_anns.json", "/kaggle/working/val_anns.json", 0.2)
-        train_coco_ann, val_coco_ann = split_pose_dataset(coco_data, full_tmp_training_path, 0.2)
+            py_logger.info(f"Обработка видео и аннотаций. Видео: {file_name}. Прогресс {progress}/100")
+            if cs is not None:
+                cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress))
 
 
-        # Configure training parameters
-        train_config = {
-            "weights_path": WEIGHTS_PATH,
-            "train_dir": full_tmp_training_path,
-            "train_imgs_dir": "extracted_frames",
-            "train_anns": "train_anns.json",
-            "val_dir": full_tmp_training_path,
-            "val_imgs_dir": "extracted_frames",
-            "val_anns": "val_anns.json",
-            "NUM_EPOCHS": 10,  # Default; can be modified as needed
-        }
+        if all_json_data["files"] is not None:
+            # Extract frames from all videos
+            all_json_data_file = os.path.join(full_tmp_training_path, "all_json_data.json")
+            save_json(all_json_data, all_json_data_file)
+            py_logger.info(f"All combined anns file path is: {all_json_data_file}")
 
-        # Start training
-        # py_logger.info(f"Train config: {train_config}")
-        training(model, train_config, cs)
+            frames_folder = extract_frames_from_videos(all_videos_names, full_tmp_training_path)
+            py_logger.info(f"Extracted frames folder is: {frames_folder}")
+
+            # Convert data to COCO format
+            coco_ann_file = "coco_ann.json"
+
+            extracted_frames = []
+            for file in os.listdir(frames_folder):
+                extracted_frames.append(os.path.join(frames_folder, file))
+
+            coco_data_path, coco_data = convert_to_coco(all_json_data, extracted_frames, full_tmp_training_path, coco_ann_file, cs)
+            py_logger.info(f"All combined converted anns file path is: {coco_data_path}")
+
+            # Split frames into train and validation sets
+            # train_folder, val_folder, train_coco_ann, val_coco_ann = train_val_split(frames_folder, full_tmp_training_path, coco_data)
+
+            # split_pose_dataset(coco_data_path, "/kaggle/working/train_anns.json", "/kaggle/working/val_anns.json", 0.2)
+            train_coco_ann, val_coco_ann = split_pose_dataset(coco_data, full_tmp_training_path, 0.2)
+
+
+            # Configure training parameters
+            train_config = {
+                "weights_path": WEIGHTS_PATH,
+                "train_dir": full_tmp_training_path,
+                "train_imgs_dir": "extracted_frames",
+                "train_anns": "train_anns.json",
+                "val_dir": full_tmp_training_path,
+                "val_imgs_dir": "extracted_frames",
+                "val_anns": "val_anns.json",
+                "NUM_EPOCHS": 10,  # Default; can be modified as needed
+            }
+
+            # Start training
+            # py_logger.info(f"Train config: {train_config}")
+            training(model, train_config, cs)
+        else:
+            py_logger.info(f"Обработанных аннотаций нет, Обучаться не на чем. Обучение завершено")
+            if cs is not None:
+                cs.post_progress(generate_progress_data(f"Обработанных аннотаций нет, Обучаться не на чем. Обучение завершено", 100))
 
     except Exception as err:
         if cs is not None:
