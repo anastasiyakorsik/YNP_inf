@@ -42,32 +42,20 @@ class EpochProgressToContainer(PhaseCallback):
     PhaseCallback that calls ContainerStatus.post_progress()
     at the end of every training epoch.
     """
-    def __init__(self, cs):
+    def __init__(self, cs, max_epochs):
         super().__init__(phase=Phase.TRAIN_EPOCH_END)
         self.container_status = cs
+        self.max_epochs = max_epochs
 
     def __call__(self, context: PhaseContext):
         epoch_num = context.epoch + 1
+        progress = round(epoch_num / self.max_epochs * 100, 2)
         payload = {
-            "epoch": epoch_num,
-            "progress": epoch_num / context.max_epochs,
-            # you can include other context fields if you like:
-            "metrics": context.metrics,
-            "loss": float(context.loss) if hasattr(context, "loss") else None,
+            "stage": f"Процесс обучения",
+            "progress": progress,
+            "train_msg": f"Эпоха {epoch_num}, {context.metrics if hasattr(context, 'metrics') else None}, {float(context.loss) if hasattr(context, 'loss') else None}"
+            # "metrics": context.metrics if hasattr(context, "metrics") else None,
+            # "loss": float(context.loss) if hasattr(context, "loss") else None,
         }
-        self.container_status.post_progress(payload)
-
-class EndTrainingReporter(PhaseCallback):
-    def __init__(self, cs):
-        super().__init__(phase=Phase.TRAIN_END)
-        self.container_status = cs
-
-    def __call__(self, context: PhaseContext):
-        payload = {
-            "status": "training_completed",
-            "total_epochs_run": context.epoch + 1,
-            "max_epochs": context.max_epochs,
-            "metrics": context.metrics,
-        }
-        self.container_status.post_end(payload)
-
+        if self.container_status is not None:
+            self.container_status.post_progress(payload)
