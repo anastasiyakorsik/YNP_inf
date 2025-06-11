@@ -3,9 +3,10 @@ import os
 import uuid
 from datetime import datetime
 from PIL import Image
-from common.logger import py_logger
-from common.json_processing import load_json, save_json
-from common.generate_callback_data import generate_error_data, generate_progress_data
+from src.common.logger import py_logger
+from src.common.json_processing import load_json, save_json
+from src.common.generate_callback_data import generate_error_data, generate_progress_data
+from src.inference.bbox_processing import get_bbox_from_keypoints
 
 def info_coco():
     """
@@ -60,16 +61,27 @@ def generate_unique_id():
     except Exception as err:
         py_logger.exception(f"Exception occured in training.convert.generate_unique_id() {err=}, {type(err)=}", exc_info=True)
 
+
 def convert_bbox(markup_path):
     """
     Convert bounding box information to COCO format.
     """
-    try:    
+    try:
+
+        x = markup_path.get("x", None)
+        y = markup_path.get("y", None)
+        width = markup_path.get("width", None)
+        height = markup_path.get("height", None)
+
+        if x is None or y is None or width is None or height is None:
+            x, y, width, height = get_bbox_from_keypoints(markup_path["nodes"])
+
+
         return [
-            markup_path["x"],
-            markup_path["y"],
-            markup_path["width"],
-            markup_path["height"]
+            x,
+            y,
+            width,
+            height
         ]
     except Exception as err:
         py_logger.exception(f"Exception occured in training.convert.convert_bbox() {err=}, {type(err)=}", exc_info=True)
@@ -86,7 +98,9 @@ def convert_keypoints(markup_path):
         for key, value in markup_path["nodes"].items():
             #key = list(node.keys())[0]
             #point = node[key]
-            x, y, score = value["x"], value["y"], value["score"]
+            x = value.get("x", None)
+            y = value.get("y", None)
+            score = value.get("score", 1)
             visibility = 2 if score > 0.5 else 1  # Visible or labeled but not visible
             keypoints.extend([x, y, visibility])
             num_keypoints += 1
@@ -160,7 +174,7 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
             
             progress = round(((frame_counter) / len(frame_path)) * 100, 2)
             if cs is not None:
-                cs.post_progress(generate_progress_data(f"Converting annotations for frame {frame_path}", progress))
+                cs.post_progress(generate_progress_data(f"Конвертация аннотаций", progress))
         
         coco_data_path = os.path.join(full_tmp_frames_path, coco_ann_file)
         if coco_data:
