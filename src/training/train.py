@@ -11,10 +11,12 @@ from super_gradients.training.datasets.pose_estimation_datasets import YoloNASPo
 from super_gradients.training.datasets.pose_estimation_datasets import COCOPoseEstimationDataset
 from torch.utils.data import DataLoader
 
+
 from src.training.train_params import define_train_params, EDGE_LINKS, EDGE_COLORS, KEYPOINT_COLORS
 from src.training.keypoint_transforms import define_set_transformations
 from src.training.convert import convert_to_coco
 from src.training.train_callback import EpochProgressToContainer, EndTrainingReporter
+
 
 import cv2
 from src.workdirs import INPUT_PATH, OUTPUT_PATH, INPUT_DATA_PATH
@@ -361,10 +363,12 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, cs = None):
             all_videos_names.append(full_file_name)
 
             py_logger.info(f"Обработка видео и аннотаций. Видео: {file_name}. Прогресс {progress}/100")
+            
             if cs is not None and json_file_cnt == 1:
                 cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", 0))
             if cs is not None:
                 cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress, file_name))
+
 
 
         if all_json_data["files"] is not None:
