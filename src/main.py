@@ -75,7 +75,7 @@ def main():
         if training_mode:
             if input_json_files:
                 py_logger.info("Start training")
-                train_mode(model, input_json_files, WEIGHTS_PATH, cs)
+                train_mode(model, input_json_files, WEIGHTS_PATH, epochs_num, cs)
                 reload_model = True
             else:
                 py_logger.error(f"No input files")
