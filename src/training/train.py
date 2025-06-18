@@ -224,7 +224,7 @@ def training(model, config, cs = None):
         py_logger.info(f"INFO - Training checkpoint path created")
 
         train_transforms, val_transforms = define_set_transformations()
-        NUM_EPOCHS = config.get("NUM_EPOCHS", 10)
+        NUM_EPOCHS = config.get("NUM_EPOCHS", 5)
         WEIGHTS_PATH = config["weights_path"]
 
         py_logger.info(f"INFO - Train data transformations defined")
@@ -402,7 +402,7 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, epochs_num, cs = None):
                 "val_dir": full_tmp_training_path,
                 "val_imgs_dir": "extracted_frames",
                 "val_anns": "val_anns.json",
-                "NUM_EPOCHS": epochs_num,  # Default; can be modified as needed
+                "NUM_EPOCHS": epochs_num,
             }
 
             # Start training
