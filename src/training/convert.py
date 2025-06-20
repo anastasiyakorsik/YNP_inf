@@ -173,7 +173,11 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
                                 })
 
             frame_10_percent_number = (len(extracted_frames) // 10)
-            if frame_counter // frame_10_percent_number == 0 or frame_counter == len(extracted_frames):
+            if frame_counter == 1:
+                if cs is not None:
+                    cs.post_progress(generate_progress_data(f"Конвертация аннотаций", 0))
+
+            if frame_counter % frame_10_percent_number == 0 or frame_counter == len(extracted_frames):
                 progress = round((frame_counter / len(extracted_frames)) * 100, 2)
                 if cs is not None:
                     cs.post_progress(generate_progress_data(f"Конвертация аннотаций", progress))
