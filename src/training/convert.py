@@ -132,7 +132,7 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
             "categories": categories_coco()
         }
 
-        for frame_counter, frame_path in enumerate(extracted_frames):
+        for frame_counter, frame_path in enumerate(extracted_frames, 1):
             # Extract image metadata
             frame_file = os.path.basename(frame_path)
             video_name, frame_number = frame_file.rsplit('_', 1)
@@ -171,10 +171,16 @@ def convert_to_coco(input_json, extracted_frames, full_tmp_frames_path, coco_ann
                                     "iscrowd": 0,
                                     "segmentation": []
                                 })
-            
-            progress = round(((frame_counter) / len(frame_path)) * 100, 2)
-            if cs is not None:
-                cs.post_progress(generate_progress_data(f"Конвертация аннотаций", progress))
+
+            frame_10_percent_number = (len(extracted_frames) // 10)
+            if frame_counter == 1:
+                if cs is not None:
+                    cs.post_progress(generate_progress_data(f"Конвертация аннотаций", 0))
+
+            if frame_counter % frame_10_percent_number == 0 or frame_counter == len(extracted_frames):
+                progress = round((frame_counter / len(extracted_frames)) * 100, 2)
+                if cs is not None:
+                    cs.post_progress(generate_progress_data(f"Конвертация аннотаций", progress))
         
         coco_data_path = os.path.join(full_tmp_frames_path, coco_ann_file)
         if coco_data:
