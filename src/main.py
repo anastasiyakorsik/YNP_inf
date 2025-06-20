@@ -47,7 +47,6 @@ def main():
         weights_file = input_data.get("weights_file", WEIGHTS_FILE)
         model_size = input_data.get("model_size", MODEL_SIZE)
         epochs_num = input_data.get("epochs_num", EPOCHS_NUM)
-
             
         # get all JSON and pkl files for each video from input_data directory
         input_json_files = collect_json_files(os.listdir(INPUT_DATA_PATH))

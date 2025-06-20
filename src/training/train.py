@@ -89,7 +89,7 @@ def extract_frames_from_videos(video_paths: list, output_folder: str, cs = None)
 
             py_logger.info(f"{frame_idx} frames from {video_name} has been extracted. Total amount of extracted frames: {frame_count}")
             if cs is not None:
-                cs.post_progress(generate_progress_data(f"Извлечение кадров для создания датасета", progress, video_name))
+                cs.post_progress(generate_progress_data(f"Извлечение кадров для создания датасета", progress))
             cap.release()
 
         py_logger.info(f"Extracting completed. Total amount of extracted frames: {frame_count}")
@@ -357,14 +357,15 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, epochs_num, cs = None):
                     cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress, train_msg=f"Видео с не подходящим расширением: {file_name}"))
                 continue  # Skip if file extension doens't match appropriate ones
 
+            if cs is not None and json_file_cnt == 1:
+                cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", 0))
+
             all_json_data["files"].append(input_data)
             all_videos_names.append(full_file_name)
 
             py_logger.info(f"Обработка видео и аннотаций. Видео: {file_name}. Прогресс {progress}/100")
-            if cs is not None and json_file_cnt == 1:
-                cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", 0))
             if cs is not None:
-                cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress, file_name))
+                cs.post_progress(generate_progress_data(f"Обработка видео и аннотаций", progress))
 
 
         if all_json_data["files"] is not None:
@@ -373,7 +374,7 @@ def train_mode(model, json_files: list, WEIGHTS_PATH, epochs_num, cs = None):
             save_json(all_json_data, all_json_data_file)
             py_logger.info(f"All combined anns file path is: {all_json_data_file}")
 
-            frames_folder = extract_frames_from_videos(all_videos_names, full_tmp_training_path)
+            frames_folder = extract_frames_from_videos(all_videos_names, full_tmp_training_path, cs)
             py_logger.info(f"Extracted frames folder is: {frames_folder}")
 
             # Convert data to COCO format
